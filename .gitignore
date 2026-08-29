@@ -1,0 +1,42 @@
+# ============ 环境与密钥 ============
+.env
+.env.local
+.env.*.local
+.env.old
+
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.conda/
+
+# 测试 / 覆盖率
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ============ Node / 前端 ============
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# ============ 日志与运行时 ============
+*.log
+.DS_Store
+Thumbs.db
+
+# ============ 编辑器 ============
+.vscode/
+.idea/
+*.swp
+*.swo
