@@ -109,52 +109,6 @@ food-order/
 
 ---
 
-## 常用命令
-
-### 后端（conda env `food-order`）
-
-> 全局规则：**所有 Python 命令必须通过 `conda run -n food-order ...` 执行**，不要直接 `python` / `pip`。
-
-| 用途 | 命令 |
-|---|---|
-| 创建环境（一次性） | `conda create -n food-order python=3.11 -y` |
-| 安装依赖 | `conda run -n food-order pip install -r backend/requirements.txt` |
-| 启动开发服务 | `conda run -n food-order uvicorn backend.app.main:app --reload --port 8000` |
-| 运行全部测试 | `conda run -n food-order pytest backend/tests -v` |
-| 运行单个测试 | `conda run -n food-order pytest backend/tests/<path>/test_x.py::test_name -v` |
-| 覆盖率报告 | `conda run -n food-order pytest backend/tests --cov=backend/app --cov-report=term-missing` |
-| Lint | `conda run -n food-order ruff check backend/` |
-| 格式化 | `conda run -n food-order ruff format backend/` |
-| 类型检查 | `conda run -n food-order mypy backend/` |
-| 生成迁移 | `conda run -n food-order alembic revision --autogenerate -m "<msg>"` |
-| 执行迁移 | `conda run -n food-order alembic upgrade head` |
-
-### 前端（pnpm）
-
-在 `frontend/` 目录下执行：
-
-| 用途 | 命令 |
-|---|---|
-| 安装依赖 | `pnpm install` |
-| 启动开发服务 | `pnpm dev`（默认 http://localhost:5173 ） |
-| 生产构建 | `pnpm build` |
-| 预览构建产物 | `pnpm preview` |
-| Lint | `pnpm lint` |
-| 类型检查 | `pnpm typecheck` |
-| 单元测试 | `pnpm test`（Vitest） |
-| E2E 测试 | `pnpm test:e2e`（Playwright） |
-
-### Git
-
-| 用途 | 命令 |
-|---|---|
-| 查看状态 | `git status` |
-| 查看分支 | `git branch --show-current` |
-| 新建功能分支 | `git switch -c feat/<spec-id>-<short-name>` |
-| 提交（规范见下） | `git commit -m "feat: ..."` |
-
----
-
 ## 代码风格（固定）
 
 ### Python
@@ -180,7 +134,7 @@ food-order/
 
 ---
 
-## 开发方法论（强制）
+## 开发方法论
 
 ### 1. SDD — 规格驱动开发
 
@@ -242,14 +196,6 @@ food-order/
 2. CI 全绿才能合并
 3. 评审至少 1 人；触及鉴权 / 支付 / 数据模型时需 2 人
 4. squash merge，commit message 取 PR 标题
-
-#### ⚠️ 危险操作禁令（继承全局规则）
-
-**禁止**：`git filter-repo` / `git filter-branch` / `git push --force` / `git reset --hard` / `git rebase`，除非明确知晓且有备份。
-
-任何历史重写前必须先用 `git bundle create backup.bundle --all` 做完整备份。
-
----
 
 ## 环境与凭据
 
