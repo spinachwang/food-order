@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><script type="application/json" data-od-external-dependencies>["https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"]</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>午饭吃什么 · 打工牛马午间 Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   设计系统：午间餐厅菜单风（Editorial / Warm Menu）
+   ============================================================ */
+:root {
+  /* OKLch 派生：暖橙焦点 */
+  --bg: oklch(98% 0.012 80);             /* 餐巾纸奶白 */
+  --surface: oklch(100% 0 0);            /* 卡片纯白 */
+  --surface-warm: oklch(94% 0.022 75);   /* 浅米托盘 */
+  --fg: oklch(20% 0.018 50);             /* 油墨黑 */
+  --fg-soft: oklch(38% 0.022 55);
+  --muted: oklch(55% 0.015 60);
+  --line: oklch(89% 0.018 70);
+  --line-strong: oklch(78% 0.028 65);
+  --accent: oklch(62% 0.20 38);          /* 暖橙 #E55934 系 */
+  --accent-deep: oklch(50% 0.18 36);
+  --accent-soft: oklch(92% 0.06 50);
+  --green: oklch(58% 0.13 145);          /* 健康标签 */
+  --gold: oklch(72% 0.13 80);            /* 价格徽章 */
+
+  /* 字体 */
+  --f-display: "Fraunces", "Iowan Old Style", "Charter", "Songti SC", serif;
+  --f-body: "Inter", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* 节奏 */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  --shadow-1: 0 1px 2px rgba(40, 25, 12, 0.04), 0 2px 8px rgba(40, 25, 12, 0.04);
+  --shadow-2: 0 2px 4px rgba(40, 25, 12, 0.05), 0 12px 28px rgba(40, 25, 12, 0.08);
+  --shadow-pop: 0 4px 8px rgba(229, 89, 52, 0.18), 0 18px 40px rgba(229, 89, 52, 0.16);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--f-body);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+img, svg { display: block; max-width: 100%; }
+button { font: inherit; cursor: pointer; border: 0; background: transparent; color: inherit; }
+input, textarea, select { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--accent); color: #fff; }
+
+/* ============================================================
+   排版
+   ============================================================ */
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+}
+h1, h2, h3, h4 { font-family: var(--f-display); font-weight: 500; letter-spacing: -0.01em; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(40px, 5.5vw, 72px); font-weight: 500; }
+h2 { font-size: clamp(28px, 3vw, 40px); }
+h3 { font-size: 22px; }
+h4 { font-size: 17px; font-weight: 600; }
+p  { margin: 0; }
+.mono { font-family: var(--f-mono); font-feature-settings: "tnum" 1; }
+
+/* ============================================================
+   顶栏
+   ============================================================ */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  background: color-mix(in oklch, var(--bg) 78%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: 1240px; margin: 0 auto;
+  display: flex; align-items: center; gap: 24px;
+  padding: 14px 28px;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--f-display); font-size: 20px; font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.brand-dot {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--accent);
+  display: grid; place-items: center;
+  color: #fff;
+  box-shadow: var(--shadow-1);
+}
+.brand-dot::before {
+  content: ""; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 6px -6px 0 -2px var(--bg);
+  display: block;
+}
+.nav-links { display: flex; gap: 22px; margin-left: 18px; }
+.nav-links a {
+  font-size: 14px; color: var(--fg-soft);
+  position: relative; padding: 6px 0;
+  transition: color 160ms;
+}
+.nav-links a:hover { color: var(--fg); }
+.nav-links a[aria-current="page"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px;
+  height: 2px; background: var(--accent); border-radius: 2px;
+}
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.clock {
+  font-family: var(--f-mono); font-size: 13px; color: var(--muted);
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface);
+}
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, oklch(82% 0.08 50), oklch(68% 0.16 35));
+  display: grid; place-items: center;
+  font-family: var(--f-display); font-weight: 600; color: #fff;
+  font-size: 14px;
+  box-shadow: var(--shadow-1);
+}
+
+/* ============================================================
+   主容器
+   ============================================================ */
+.shell {
+  max-width: 1240px; margin: 0 auto;
+  padding: 36px 28px 96px;
+}
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 48px;
+  align-items: end;
+  padding: 24px 0 36px;
+  border-bottom: 1px solid var(--line);
+}
+.hero-greet { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+.hero h1 { margin-bottom: 16px; }
+.hero h1 em {
+  font-style: italic; color: var(--accent-deep);
+  font-feature-settings: "ss01" 1;
+}
+.hero-sub { font-size: 17px; color: var(--fg-soft); max-width: 540px; }
+.hero-meta {
+  display: flex; flex-direction: column; gap: 14px;
+  font-family: var(--f-mono); font-size: 13px; color: var(--muted);
+  align-items: flex-end;
+}
+.hero-meta-row { display: flex; gap: 10px; align-items: center; }
+.hero-meta-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in oklch, var(--green) 20%, transparent); }
+.hero-meta-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  min-width: 240px;
+  box-shadow: var(--shadow-1);
+}
+.hero-meta-card .label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.hero-meta-card .value { font-family: var(--f-display); font-size: 22px; font-weight: 500; color: var(--fg); margin-top: 4px; }
+.hero-meta-card .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* ============================================================
+   Context strip（地址 / 天气）
+   ============================================================ */
+.context {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-top: 28px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-1);
+}
+.card-title {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-title .label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.card-title .edit {
+  font-size: 12px; color: var(--fg-soft);
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 6px;
+  transition: background 160ms;
+}
+.card-title .edit:hover { background: var(--surface-warm); }
+
+.addr-line { font-family: var(--f-display); font-size: 19px; font-weight: 500; margin-top: 2px; }
+.addr-line small { display: block; font-family: var(--f-body); font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 400; }
+
+.weather {
+  display: flex; align-items: baseline; gap: 14px;
+  margin-top: 4px;
+}
+.weather-temp { font-family: var(--f-display); font-size: 38px; font-weight: 500; line-height: 1; }
+.weather-desc { color: var(--fg-soft); font-size: 13px; }
+.weather-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.weather-tag {
+  font-family: var(--f-mono); font-size: 11px;
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--surface-warm); color: var(--fg-soft);
+}
+
+/* ============================================================
+   偏好区
+   ============================================================ */
+.section-head {
+  display: flex; align-items: end; justify-content: space-between;
+  margin: 48px 0 18px;
+  gap: 24px;
+}
+.section-head h2 { font-size: clamp(26px, 2.6vw, 34px); }
+.section-head .lede { color: var(--fg-soft); font-size: 14px; margin-top: 6px; max-width: 540px; }
+.section-head .actions { display: flex; gap: 8px; }
+.btn-ghost {
+  font-size: 13px; color: var(--fg-soft);
+  padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: all 160ms;
+}
+.btn-ghost:hover { border-color: var(--line-strong); color: var(--fg); }
+
+.prefs {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-1);
+}
+.pref-row { padding: 16px 0; border-bottom: 1px dashed var(--line); }
+.pref-row:last-child { border-bottom: 0; }
+.pref-row-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pref-row-head h4 { font-family: var(--f-display); font-weight: 500; font-size: 16px; }
+.pref-row-head .hint { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-warm);
+  color: var(--fg-soft);
+  font-size: 13px;
+  border: 1px solid transparent;
+  transition: all 160ms;
+  user-select: none;
+}
+.chip:hover { background: color-mix(in oklch, var(--accent-soft) 60%, var(--surface-warm)); color: var(--fg); }
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-deep);
+  box-shadow: 0 2px 6px rgba(229, 89, 52, 0.25);
+}
+.chip[aria-pressed="true"] .x { background: rgba(255,255,255,0.18); }
+.chip .x {
+  width: 14px; height: 14px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,0.06);
+  font-size: 10px; font-weight: 700;
+}
+
+.slider-row { display: grid; grid-template-columns: 60px 1fr 60px; gap: 14px; align-items: center; }
+.slider-row .v { font-family: var(--f-mono); font-size: 14px; text-align: right; color: var(--fg); font-weight: 500; }
+.slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; border-radius: 999px;
+  background: var(--line);
+  outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--accent-deep);
+  cursor: pointer;
+  transition: transform 120ms;
+}
+.slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--accent-deep);
+  cursor: pointer;
+}
+
+.toggle-row { display: flex; gap: 8px; }
+.toggle {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-warm);
+  font-size: 13px;
+  text-align: center;
+  border: 1px solid transparent;
+  transition: all 160ms;
+}
+.toggle[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.mood-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.mood {
+  padding: 14px 8px;
+  border-radius: var(--r-sm);
+  background: var(--surface-warm);
+  text-align: center;
+  border: 1px solid transparent;
+  transition: all 160ms;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.mood:hover { background: color-mix(in oklch, var(--accent-soft) 50%, var(--surface-warm)); }
+.mood[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+.mood .emoji { font-size: 22px; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+.mood .name { font-size: 12px; color: var(--fg-soft); }
+.mood[aria-pressed="true"] .name { color: var(--accent-deep); font-weight: 600; }
+
+/* 主 CTA */
+.cta-row {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 24px; padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.cta-row .left { flex: 1; font-size: 13px; color: var(--muted); }
+.cta-row .left strong { color: var(--fg); font-weight: 600; }
+
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--accent);
+  color: #fff;
+  padding: 14px 26px;
+  border-radius: 999px;
+  font-size: 15px; font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-pop);
+  transition: all 180ms;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 700ms;
+}
+.btn-primary:hover { background: var(--accent-deep); transform: translateY(-1px); }
+.btn-primary:hover::after { transform: translateX(100%); }
+.btn-primary .arrow { font-family: var(--f-mono); }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent;
+  color: var(--fg);
+  padding: 14px 20px;
+  border-radius: 999px;
+  font-size: 14px; font-weight: 500;
+  border: 1px solid var(--line-strong);
+  transition: all 160ms;
+}
+.btn-secondary:hover { background: var(--surface-warm); }
+
+/* ============================================================
+   Agent 推荐区
+   ============================================================ */
+.reco-wrap {
+  margin-top: 56px;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
+}
+
+.reco-main { min-width: 0; }
+
+.reco-status {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.reco-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px color-mix(in oklch, var(--green) 18%, transparent); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* 主推卡片 */
+.reco-hero {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-2);
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  min-height: 380px;
+}
+.reco-hero .visual {
+  position: relative;
+  background:
+    radial-gradient(120% 80% at 80% 10%, oklch(82% 0.12 60) 0%, transparent 60%),
+    linear-gradient(160deg, oklch(38% 0.08 45) 0%, oklch(22% 0.05 35) 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: oklch(96% 0.02 80);
+  overflow: hidden;
+}
+.reco-hero .visual::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(8px 8px at 20% 30%, oklch(70% 0.15 50) 0%, transparent 100%),
+    radial-gradient(6px 6px at 70% 60%, oklch(75% 0.14 60) 0%, transparent 100%),
+    radial-gradient(10px 10px at 40% 80%, oklch(72% 0.16 45) 0%, transparent 100%);
+  opacity: 0.4;
+}
+.reco-hero .visual .bowl {
+  width: 70%; aspect-ratio: 1; max-width: 240px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, oklch(95% 0.04 80) 0%, oklch(78% 0.12 60) 60%, oklch(50% 0.08 40) 100%);
+  box-shadow:
+    inset 0 -20px 30px rgba(0,0,0,0.18),
+    inset 0 10px 20px rgba(255,255,255,0.2),
+    0 24px 48px rgba(0,0,0,0.32);
+  position: relative;
+  z-index: 1;
+}
+.reco-hero .visual .bowl::after {
+  content: ""; position: absolute; inset: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, oklch(85% 0.13 75) 0%, oklch(55% 0.10 50) 100%);
+  box-shadow: inset 0 -10px 18px rgba(0,0,0,0.25);
+}
+.reco-hero .visual .badge {
+  position: absolute; top: 18px; left: 18px;
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: oklch(98% 0.01 80);
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+}
+
+.reco-hero .info {
+  padding: 32px 32px 28px;
+  display: flex; flex-direction: column;
+}
+.reco-hero .info .eyebrow { margin-bottom: 10px; }
+.reco-hero .info h3 {
+  font-size: clamp(28px, 2.4vw, 34px);
+  font-weight: 500;
+  margin-bottom: 8px;
+  letter-spacing: -0.015em;
+}
+.reco-hero .info .dish {
+  font-family: var(--f-display);
+  font-size: 15px;
+  color: var(--accent-deep);
+  font-style: italic;
+  margin-bottom: 16px;
+}
+.reco-hero .info .desc {
+  color: var(--fg-soft);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.tag {
+  font-family: var(--f-mono); font-size: 11px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--surface-warm); color: var(--fg-soft);
+  letter-spacing: 0.04em;
+}
+.tag.good { background: color-mix(in oklch, var(--green) 14%, var(--surface)); color: var(--green); }
+.tag.hot { background: var(--accent-soft); color: var(--accent-deep); }
+
+.reco-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  padding: 14px 0; margin-bottom: 18px;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+.reco-stat .label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.reco-stat .value { font-family: var(--f-display); font-size: 19px; font-weight: 500; margin-top: 2px; }
+.reco-stat .value .unit { font-size: 11px; color: var(--muted); margin-left: 2px; font-family: var(--f-mono); }
+
+.reco-actions { display: flex; gap: 10px; margin-top: auto; }
+.reco-actions .btn-primary { padding: 12px 22px; font-size: 14px; }
+.btn-icon {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: var(--surface-warm);
+  color: var(--fg);
+  font-size: 13px;
+  border: 1px solid transparent;
+  transition: all 160ms;
+}
+.btn-icon:hover { background: color-mix(in oklch, var(--accent-soft) 60%, var(--surface-warm)); }
+.btn-icon svg { width: 14px; height: 14px; }
+
+/* 备选 */
+.alt-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-top: 20px;
+}
+.alt-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  transition: all 180ms;
+  cursor: pointer;
+  position: relative;
+}
+.alt-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+  border-color: var(--line-strong);
+}
+.alt-card .top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.alt-card .top .num {
+  font-family: var(--f-mono); font-size: 11px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted);
+}
+.alt-card .match {
+  font-family: var(--f-mono); font-size: 12px; font-weight: 600;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  padding: 3px 8px; border-radius: 4px;
+}
+.alt-card h4 {
+  font-family: var(--f-display);
+  font-size: 18px; font-weight: 500;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.alt-card .dish { font-style: italic; color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+.alt-card .meta {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--f-mono); font-size: 12px; color: var(--muted);
+  padding-top: 12px; border-top: 1px dashed var(--line);
+}
+.alt-card .meta .price { color: var(--fg); font-weight: 600; font-size: 14px; }
+
+/* ============================================================
+   侧栏：Agent 思考流
+   ============================================================ */
+.thinking {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 22px;
+  position: sticky; top: 90px;
+  box-shadow: var(--shadow-1);
+}
+.thinking-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.thinking-head .label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.thinking-head .agent {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--fg-soft);
+}
+.thinking-head .agent .ava {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent);
+  display: grid; place-items: center;
+  color: #fff; font-size: 9px; font-weight: 700;
+}
+
+.think-steps { display: flex; flex-direction: column; gap: 12px; }
+.think-step {
+  display: grid; grid-template-columns: 28px 1fr; gap: 12px;
+  font-size: 13px; color: var(--fg-soft);
+  position: relative;
+}
+.think-step:not(:last-child)::before {
+  content: ""; position: absolute; left: 13px; top: 28px; bottom: -16px;
+  width: 1px; background: var(--line);
+}
+.think-step .marker {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-warm);
+  color: var(--fg-soft);
+  font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+  position: relative; z-index: 1;
+}
+.think-step.done .marker { background: var(--accent); color: #fff; }
+.think-step .body strong { display: block; color: var(--fg); font-weight: 600; margin-bottom: 2px; font-size: 13px; }
+.think-step .body em { font-style: normal; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+
+/* ============================================================
+   历史 & 收藏（暂未启用）
+   ============================================================ */
+.section-pair {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 32px;
+  margin-top: 64px;
+}
+
+.history {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 22px;
+}
+.history-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.history-head h3 { font-size: 18px; }
+.history-head .all { font-size: 12px; color: var(--muted); }
+.history-row {
+  display: grid; grid-template-columns: 36px 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.history-row:last-child { border-bottom: 0; }
+.history-row .when { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.history-row .name { font-size: 14px; }
+.history-row .name small { display: block; font-size: 12px; color: var(--muted); }
+.history-row .score {
+  font-family: var(--f-mono); font-size: 12px;
+  background: var(--surface-warm); color: var(--fg-soft);
+  padding: 3px 8px; border-radius: 4px;
+}
+.history-row .score.bad { background: color-mix(in oklch, var(--accent) 10%, var(--surface)); color: var(--accent-deep); }
+.history-row .score.ok { background: color-mix(in oklch, var(--green) 12%, var(--surface)); color: var(--green); }
+
+.fav { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 22px; }
+.fav-list { display: flex; flex-direction: column; gap: 10px; }
+.fav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--surface-warm);
+  transition: all 160ms;
+}
+.fav-item:hover { background: color-mix(in oklch, var(--accent-soft) 40%, var(--surface-warm)); }
+.fav-item .ico {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: var(--surface);
+  color: var(--accent-deep);
+  flex-shrink: 0;
+}
+.fav-item .body { flex: 1; min-width: 0; }
+.fav-item .body .n { font-size: 14px; font-weight: 500; }
+.fav-item .body .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.fav-item .heart { color: var(--accent); }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.foot {
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--f-mono); font-size: 12px; color: var(--muted);
+}
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 1080px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-meta { align-items: flex-start; }
+  .context { grid-template-columns: 1fr 1fr; }
+  .context .weather-card { grid-column: 1 / -1; }
+  .reco-wrap { grid-template-columns: 1fr; }
+  .thinking { position: static; }
+}
+@media (max-width: 720px) {
+  .topbar-inner { padding: 12px 16px; gap: 12px; }
+  .nav-links { display: none; }
+  .shell { padding: 20px 16px 80px; }
+  .hero { padding: 12px 0 24px; }
+  .context { grid-template-columns: 1fr; }
+  .prefs { padding: 18px; }
+  .mood-row { grid-template-columns: repeat(3, 1fr); }
+  .reco-hero { grid-template-columns: 1fr; }
+  .reco-hero .visual { min-height: 200px; }
+  .alt-grid { grid-template-columns: 1fr; }
+  .reco-stats { grid-template-columns: 1fr 1fr; }
+  .cta-row { flex-direction: column; align-items: stretch; }
+  .cta-row .btn-primary, .cta-row .btn-secondary { justify-content: center; }
+}
+
+/* 焦点态 */
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+</style>
+</head>
+<body>
+
+<!-- ====================== Topbar ====================== -->
+<header class="topbar" data-od-id="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#" data-od-id="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      午饭吃什么
+    </a>
+    <nav class="nav-links" aria-label="主导航">
+      <a href="#" aria-current="page">推荐</a>
+    </nav>
+    <div class="topbar-right">
+      <span class="clock" aria-label="当前时间"><span id="clock">11:42</span> · 周三</span>
+      <div class="avatar" aria-label="用户头像">Z</div>
+    </div>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- ====================== Hero ====================== -->
+  <section class="hero" data-od-id="hero">
+    <div>
+      <p class="hero-greet" id="greet">早上好，张工 👋</p>
+      <h1>今天中午，<em>吃点好的</em><br/>别再吃昨天那家了。</h1>
+      <p class="hero-sub">告诉我你现在在哪、想吃什么，我把方圆一公里内最适合你这顿午饭的选项筛出来 —— 不再让你在地图 APP 里翻 20 分钟。</p>
+    </div>
+    <aside class="hero-meta" aria-label="实时上下文">
+      <div class="hero-meta-card">
+        <p class="label">午餐窗口</p>
+        <p class="value">11:50 — 13:30</p>
+        <p class="hint">距离开饭还有 8 分钟</p>
+      </div>
+      <div class="hero-meta-row"><span class="dot"></span><span>Agent 在线 · 实时拉取高德 POI</span></div>
+    </aside>
+  </section>
+
+  <!-- ====================== Context ====================== -->
+  <section class="context" data-od-id="context">
+
+    <div class="card">
+      <div class="card-title">
+        <span class="label">当前位置</span>
+        <a href="#" class="edit" data-od-id="addr-edit">⌘ 切换地址</a>
+      </div>
+      <p class="addr-line">上海 · 静安嘉里中心 B2
+        <small>南京西路 1515 号 · 已绑定为工作日默认</small>
+      </p>
+    </div>
+
+    <div class="card weather-card">
+      <div class="card-title">
+        <span class="label">天气 · 影响选餐</span>
+        <span class="edit" style="cursor:default">实时</span>
+      </div>
+      <div class="weather">
+        <span class="weather-temp">28°</span>
+        <span class="weather-desc">多云转小雨<br/>体感 30° · 湿度 72%</span>
+      </div>
+      <div class="weather-tags">
+        <span class="weather-tag">有雨概率 60%</span>
+        <span class="weather-tag">建议近一点</span>
+        <span class="weather-tag">暖食 +1 分</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== 偏好 ====================== -->
+  <div class="section-head">
+    <div>
+      <h2>告诉我你今天的状态</h2>
+      <p class="lede">越具体，agent 越准。点一下选中，再点取消 —— 不选也能推荐。</p>
+    </div>
+    <div class="actions">
+      <button class="btn-ghost" data-od-id="reset-prefs">重置</button>
+      <button class="btn-ghost" data-od-id="preset-rainy">下雨天预设</button>
+    </div>
+  </div>
+
+  <section class="prefs" data-od-id="prefs">
+    <!-- 口味 -->
+    <div class="pref-row">
+      <div class="pref-row-head">
+        <h4>想吃什么口味</h4>
+        <span class="hint">多选</span>
+      </div>
+      <div class="chips" data-group="taste">
+        <button class="chip" aria-pressed="true">中餐<span class="x">✓</span></button>
+        <button class="chip" aria-pressed="false">日料<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">西餐<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">面食<span class="x">+</span></button>
+        <button class="chip" aria-pressed="true">米饭<span class="x">✓</span></button>
+        <button class="chip" aria-pressed="false">轻食沙拉<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">粉 / 米线<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">麻辣烫<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">汉堡快餐<span class="x">+</span></button>
+      </div>
+    </div>
+
+    <!-- 温度 -->
+    <div class="pref-row">
+      <div class="pref-row-head">
+        <h4>热的还是凉的</h4>
+        <span class="hint">agent 会根据天气微调</span>
+      </div>
+      <div class="toggle-row" role="radiogroup" aria-label="温度">
+        <button class="toggle" aria-pressed="false">冰镇 / 凉拌</button>
+        <button class="toggle" aria-pressed="false">常温</button>
+        <button class="toggle" aria-pressed="true">热乎乎的</button>
+      </div>
+    </div>
+
+    <!-- 心情 -->
+    <div class="pref-row">
+      <div class="pref-row-head">
+        <h4>现在的心情</h4>
+        <span class="hint">选一个</span>
+      </div>
+      <div class="mood-row" role="radiogroup" aria-label="心情">
+        <button class="mood" aria-pressed="false">
+          <span class="emoji">🥱</span>
+          <span class="name">凑合吃</span>
+        </button>
+        <button class="mood" aria-pressed="true">
+          <span class="emoji">🍱</span>
+          <span class="name">想吃好点</span>
+        </button>
+        <button class="mood" aria-pressed="false">
+          <span class="emoji">🧘</span>
+          <span class="name">要健康</span>
+        </button>
+        <button class="mood" aria-pressed="false">
+          <span class="emoji">🌶️</span>
+          <span class="name">想暴辣</span>
+        </button>
+        <button class="mood" aria-pressed="false">
+          <span class="emoji">🫶</span>
+          <span class="name">想治愈</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 距离 / 价格 -->
+    <div class="pref-row">
+      <div class="pref-row-head">
+        <h4>愿意走多远 &amp; 花多少钱</h4>
+        <span class="hint">单餐含人均</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+        <div>
+          <div style="font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">步行距离</div>
+          <div class="slider-row">
+            <span class="mono" style="color:var(--muted);font-size:12px">近</span>
+            <input type="range" min="0" max="100" value="35" class="slider" aria-label="步行距离" />
+            <span class="v" id="dist-v">7 min</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">预算上限</div>
+          <div class="slider-row">
+            <span class="mono" style="color:var(--muted);font-size:12px">低</span>
+            <input type="range" min="0" max="100" value="55" class="slider" aria-label="预算上限" />
+            <span class="v" id="budget-v">¥45</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 忌口 -->
+    <div class="pref-row">
+      <div class="pref-row-head">
+        <h4>不吃什么（忌口）</h4>
+        <span class="hint">多选</span>
+      </div>
+      <div class="chips" data-group="avoid">
+        <button class="chip" aria-pressed="false">香菜<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">葱<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">辣<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">内脏<span class="x">+</span></button>
+        <button class="chip" aria-pressed="true">生海鲜<span class="x">✓</span></button>
+        <button class="chip" aria-pressed="false">牛肉<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">油炸<span class="x">+</span></button>
+        <button class="chip" aria-pressed="false">乳制品<span class="x">+</span></button>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-row">
+      <div class="left">
+        agent 已根据 <strong>3 项偏好</strong>、<strong>天气</strong>、<strong>过去 30 天口味</strong> 准备好了推荐。
+      </div>
+      <button class="btn-secondary" data-od-id="surprise">🤷 随便</button>
+      <button class="btn-primary" data-od-id="ask-agent">
+        给我推荐 <span class="arrow">→</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ====================== 推荐 ====================== -->
+  <section class="reco-wrap" data-od-id="reco">
+    <div class="reco-main">
+
+      <div class="reco-status" data-od-id="reco-status">
+        <span class="dot" aria-hidden="true"></span>
+        <span>Agent · 实时分析中</span>
+        <span style="margin-left:auto;font-family:var(--f-mono);color:var(--accent-deep)">置信度 92%</span>
+      </div>
+
+      <!-- 主推 -->
+      <article class="reco-hero" data-od-id="reco-main">
+        <div class="visual" aria-hidden="true">
+          <span class="badge">No.1 · 今日主推</span>
+          <div class="bowl"></div>
+        </div>
+        <div class="info">
+          <span class="eyebrow">主推 · 黄记煌三汁焖锅</span>
+          <h3>鸡腿肉三汁焖锅 + 米饭</h3>
+          <p class="dish">暖食 · 中餐 · 一人食</p>
+          <p class="desc">28° 的雨天，agent 自动把"热乎乎的"权重上调一档。三汁焖锅不用等位、出餐快、暖身、不油腻 —— 比昨天那家沙县多了点新意，又不至于踩雷。</p>
+          <div class="tags">
+            <span class="tag good">✓ 暖身</span>
+            <span class="tag good">✓ 出餐 ≤ 8 min</span>
+            <span class="tag">7 分钟步行</span>
+            <span class="tag hot">雨备好物</span>
+            <span class="tag">符合忌口</span>
+          </div>
+          <div class="reco-stats">
+            <div class="reco-stat">
+              <div class="label">距离</div>
+              <div class="value">420<span class="unit">m</span></div>
+            </div>
+            <div class="reco-stat">
+              <div class="label">预计人均</div>
+              <div class="value">¥48</div>
+            </div>
+            <div class="reco-stat">
+              <div class="label">匹配度</div>
+              <div class="value">92<span class="unit">/100</span></div>
+            </div>
+          </div>
+          <div class="reco-actions">
+            <button class="btn-primary" data-od-id="go-eat">
+              就它了 · 导航去吃 <span class="arrow">↗</span>
+            </button>
+            <button class="btn-icon" data-od-id="share-eat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+              复制导航链接
+            </button>
+            <button class="btn-icon" data-od-id="save-eat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+              存一下
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- 备选 -->
+      <div class="alt-grid" data-od-id="reco-alt">
+        <article class="alt-card" data-od-id="alt-1" tabindex="0">
+          <div class="top">
+            <span class="num">备选 01</span>
+            <span class="match">88 分</span>
+          </div>
+          <h4>老乡鸡 · 梅菜扣肉饭</h4>
+          <p class="dish">热米饭 + 炖肉 · 出餐 3 分钟</p>
+          <div class="meta">
+            <span class="price">¥32</span>
+            <span>· 280m</span>
+            <span style="margin-left:auto;color:var(--muted)">你去过 3 次</span>
+          </div>
+        </article>
+        <article class="alt-card" data-od-id="alt-2" tabindex="0">
+          <div class="top">
+            <span class="num">备选 02</span>
+            <span class="match">81 分</span>
+          </div>
+          <h4>味千拉面 · 豚骨汤面</h4>
+          <p class="dish">热汤 · 雨天标配 · 一人食</p>
+          <div class="meta">
+            <span class="price">¥42</span>
+            <span>· 510m</span>
+            <span style="margin-left:auto;color:var(--muted)">暖身 +2</span>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- 思考流 -->
+    <aside class="thinking" data-od-id="thinking" aria-label="Agent 思考过程">
+      <div class="thinking-head">
+        <span class="label">Agent 思考</span>
+        <span class="agent"><span class="ava">L</span> Lunch Agent</span>
+      </div>
+      <div class="think-steps">
+        <div class="think-step done">
+          <span class="marker">1</span>
+          <div class="body">
+            <strong>读取偏好与忌口</strong>
+            <em>中餐+米饭 · 热乎乎 · 不吃生海鲜</em>
+          </div>
+        </div>
+        <div class="think-step done">
+          <span class="marker">2</span>
+          <div class="body">
+            <strong>天气信号注入</strong>
+            <em>28° 多云转小雨 → 暖食权重 +1</em>
+          </div>
+        </div>
+        <div class="think-step done">
+          <span class="marker">3</span>
+          <div class="body">
+            <strong>拉取半径 800m 内 47 家店</strong>
+            <em>高德 POI · 实时排队</em>
+          </div>
+        </div>
+        <div class="think-step done">
+          <span class="marker">4</span>
+          <div class="body">
+            <strong>排除 38 家</strong>
+            <em>含生海鲜 / 出餐 &gt; 15 min / 超预算</em>
+          </div>
+        </div>
+        <div class="think-step done">
+          <span class="marker">5</span>
+          <div class="body">
+            <strong>重排序 · 输出 Top 3</strong>
+            <em>综合口味 × 距离 × 时间 × 历史</em>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <footer class="foot" data-od-id="foot">
+    <span>午饭吃什么 · Lunch Agent v0.3 · 让打工牛马不再为中午吃什么内耗</span>
+    <span>数据：高德 POI · 实时排队 · 你的过去 30 天</span>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  // ---------- 时钟 ----------
+  var clockEl = document.getElementById('clock');
+  var greetEl = document.getElementById('greet');
+  function tick() {
+    var d = new Date();
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    if (clockEl) clockEl.textContent = hh + ':' + mm;
+    var h = d.getHours();
+    var g = h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+    if (greetEl) greetEl.textContent = g + '，张工 👋';
+  }
+  tick();
+  setInterval(tick, 30000);
+
+  // ---------- Chip toggle ----------
+  document.querySelectorAll('[data-group] .chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var pressed = chip.getAttribute('aria-pressed') === 'true';
+      chip.setAttribute('aria-pressed', pressed ? 'false' : 'true');
+      var x = chip.querySelector('.x');
+      if (x) x.textContent = pressed ? '+' : '✓';
+      updateCtaHint();
+    });
+  });
+
+  // ---------- 单选：温度 / 心情 ----------
+  document.querySelectorAll('.toggle-row .toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.parentElement.querySelectorAll('.toggle').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+      btn.setAttribute('aria-pressed', 'true');
+    });
+  });
+  document.querySelectorAll('.mood-row .mood').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.parentElement.querySelectorAll('.mood').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+      btn.setAttribute('aria-pressed', 'true');
+    });
+  });
+
+  // ---------- Slider 显示 ----------
+  var dist = document.getElementById('dist-v');
+  var budget = document.getElementById('budget-v');
+  document.querySelectorAll('.slider').forEach(function (s, i) {
+    s.addEventListener('input', function () {
+      if (i === 0 && dist) dist.textContent = Math.round(s.value / 5) + ' min';
+      if (i === 1 && budget) budget.textContent = '¥' + (20 + Math.round(s.value / 100 * 60));
+    });
+  });
+
+  // ---------- CTA 提示 ----------
+  function updateCtaHint() {
+    var count = 0;
+    document.querySelectorAll('[data-group] .chip[aria-pressed="true"]').forEach(function () { count++; });
+    var hint = document.querySelector('.cta-row .left strong');
+    if (hint) hint.textContent = count + ' 项偏好';
+  }
+
+  // ---------- 主 CTA：模拟 agent 重算 ----------
+  var recoStatus = document.getElementById('reco-status');
+  var askBtn = document.querySelector('[data-od-id="ask-agent"]');
+  if (askBtn) {
+    askBtn.addEventListener('click', function () {
+      if (recoStatus) recoStatus.innerHTML =
+        '<span class="dot" aria-hidden="true"></span>' +
+        '<span>Agent · 重新分析中</span>' +
+        '<span style="margin-left:auto;font-family:var(--f-mono);color:var(--accent-deep)">⟳ 拉取最新数据</span>';
+      askBtn.style.opacity = '0.85';
+      setTimeout(function () {
+        if (recoStatus) recoStatus.innerHTML =
+          '<span class="dot" aria-hidden="true"></span>' +
+          '<span>Agent · 推荐已更新</span>' +
+          '<span style="margin-left:auto;font-family:var(--f-mono);color:var(--accent-deep)">置信度 92%</span>';
+        askBtn.style.opacity = '1';
+      }, 1200);
+    });
+  }
+
+  // ---------- "随便" 按钮 ----------
+  var surprise = document.querySelector('[data-od-id="surprise"]');
+  if (surprise) {
+    surprise.addEventListener('click', function (e) {
+      e.preventDefault();
+      window.scrollTo({ top: document.querySelector('[data-od-id="reco"]').offsetTop - 60, behavior: 'smooth' });
+    });
+  }
+
+  // ---------- 备选点击替换主推 ----------
+  document.querySelectorAll('.alt-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      var title = card.querySelector('h4').textContent;
+      var dish = card.querySelector('.dish').textContent;
+      var meta = card.querySelector('.meta').textContent;
+      var main = document.querySelector('[data-od-id="reco-main"]');
+      if (main) {
+        var eyebrow = main.querySelector('.eyebrow');
+        var h3 = main.querySelector('h3');
+        var dishP = main.querySelector('.dish');
+        if (eyebrow) eyebrow.textContent = '主推 · ' + title.split(' · ')[0];
+        if (h3) h3.textContent = title;
+        if (dishP) dishP.textContent = dish + ' · ' + meta.replace(/\s+/g, ' ');
+      }
+      window.scrollTo({ top: document.querySelector('[data-od-id="reco"]').offsetTop - 60, behavior: 'smooth' });
+    });
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+    });
+  });
+
+  // ---------- 预设：下雨天 ----------
+  var rainy = document.querySelector('[data-od-id="preset-rainy"]');
+  if (rainy) {
+    rainy.addEventListener('click', function (e) {
+      e.preventDefault();
+      // 温度 → 热乎乎
+      document.querySelectorAll('.toggle-row .toggle').forEach(function (b, i) {
+        b.setAttribute('aria-pressed', i === 2 ? 'true' : 'false');
+      });
+      // 心情 → 想治愈
+      document.querySelectorAll('.mood-row .mood').forEach(function (b, i) {
+        b.setAttribute('aria-pressed', i === 4 ? 'true' : 'false');
+      });
+      // 距离调近
+      var sliders = document.querySelectorAll('.slider');
+      if (sliders[0]) {
+        sliders[0].value = 25;
+        sliders[0].dispatchEvent(new Event('input'));
+      }
+      updateCtaHint();
+    });
+  }
+
+  // ---------- 重置 ----------
+  var resetBtn = document.querySelector('[data-od-id="reset-prefs"]');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      document.querySelectorAll('[data-group] .chip').forEach(function (c) {
+        c.setAttribute('aria-pressed', 'false');
+        var x = c.querySelector('.x'); if (x) x.textContent = '+';
+      });
+      document.querySelectorAll('.toggle-row .toggle').forEach(function (b, i) {
+        b.setAttribute('aria-pressed', i === 2 ? 'true' : 'false');
+      });
+      document.querySelectorAll('.mood-row .mood').forEach(function (b, i) {
+        b.setAttribute('aria-pressed', i === 1 ? 'true' : 'false');
+      });
+      var sliders = document.querySelectorAll('.slider');
+      if (sliders[0]) { sliders[0].value = 35; sliders[0].dispatchEvent(new Event('input')); }
+      if (sliders[1]) { sliders[1].value = 55; sliders[1].dispatchEvent(new Event('input')); }
+      updateCtaHint();
+    });
+  }
+
+  // ---------- 收藏按钮反馈 ----------
+  document.querySelectorAll('[data-od-id="save-eat"]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg> 已收藏';
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
