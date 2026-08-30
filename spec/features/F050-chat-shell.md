@@ -2,7 +2,7 @@
 
 > **状态**：[ ] 未开始
 > **所属里程碑**：M1 Agent MVP
-> **依赖**：[F001](F001-user-preferences.md)、[F002](F002-main-agent-router.md)、[F003](F003-cuisine-expert-contract.md)、[F021](F021-langgraph-workflow.md)、[F030](F030-amap-restaurant-search.md)、[F031](F031-amap-weather.md)、[F040](F040-summary-agent.md)
+> **依赖**：[F001](F001-user-preferences.md)、[F002](F002-main-agent-router.md)、[F003](F003-cuisine-expert-contract.md)、[F004](F004-langgraph-workflow.md)、[F030](F030-amap-restaurant-search.md)、[F031](F031-amap-weather.md)、[F040](F040-summary-agent.md)
 > **被依赖**：无（M1 的 UI 收口；后续 M2 历史/收藏夹/登录态 会复用本 spec 的页面骨架）
 
 > 本 spec 的视觉基线来自 [prototype/index.html](../../prototype/index.html)（Editorial / Warm Menu 风格 OKLch 单文件原型，Aug 30 写入）。**prototype 仅作参考**，不引入、不修改；本 spec 是 React 实现的唯一依据。
@@ -49,7 +49,7 @@
 - [ ] 焦点态：所有交互元素 `focus-visible` 时 2px accent 描边 + 3px offset
 - [ ] 字号：`h1 clamp(40px, 5.5vw, 72px)` / `h2 clamp(28px, 3vw, 40px)` / 正文 15px / 行高 1.55
 
-### 2.3 SSE 事件 → UI 渲染映射（来自 F021 §4）
+### 2.3 SSE 事件 → UI 渲染映射（来自 F004 §4）
 
 | SSE event | 触发节点 | 渲染动作 |
 |---|---|---|
@@ -59,13 +59,13 @@
 | `weather` | F031 fetch | `context.weather-card` 数值 + tags 实时刷新 |
 | `recommendation` | F040 summarize | `reco-status` 切为"Agent · 推荐已更新" + `reco-main` 全量替换 + `reco-alt` 替换 |
 | `error` | 任一 Node | `thinking` 追加红色错误步骤 + 主区显示降级空态（见 §5） |
-| `done` | F021 收尾 | `reco-status` 停止脉冲；按钮恢复可用 |
+| `done` | F004 收尾 | `reco-status` 停止脉冲；按钮恢复可用 |
 
 ### 2.4 交互按钮契约
 
 | `data-od-id` | 触发行为 | 备注 |
 |---|---|---|
-| `ask-agent` | 调 F021 `POST /api/v1/agent/chat`（body: `{message, session_id?, location_override?}`）→ 开启 SSE 监听 | CTA 主按钮；点击后 1.2s 内 `reco-status` 必更新（对应 SSE `cuisine_selected`） |
+| `ask-agent` | 调 F004 `POST /api/v1/agent/chat`（body: `{message, session_id?, location_override?}`）→ 开启 SSE 监听 | CTA 主按钮；点击后 1.2s 内 `reco-status` 必更新（对应 SSE `cuisine_selected`） |
 | `surprise` | **M1 简化**：滚动到 `reco` 锚点 + 显示缓存的默认推荐（不调 SSE、不发消息） | M2 升级为发 `surprise_me` 走完整流（F050 §8 #1） |
 | `go-eat` | 仅调起高德地图 web URL `https://uri.amap.com/marker?position=lng,lat&name=xxx`（新窗口打开） | 不接外卖 API，仅导航；**M1 不写 feedback** |
 | `share-eat` | 复制"餐厅名 + 距离 + 高德 marker URL"到剪贴板；toast 反馈"已复制" | 纯前端（F050 §8 #3 决议） |
@@ -115,7 +115,7 @@ const res = await fetch('/api/v1/agent/chat', {
 });
 const reader = res.body.getReader();
 const decoder = new TextDecoder();
-// 事件循环按 F021 §4 表逐条处理：cuisine_selected → cuisine_result →
+// 事件循环按 F004 §4 表逐条处理：cuisine_selected → cuisine_result →
 // restaurant_found → weather → recommendation → done
 ```
 
@@ -151,7 +151,7 @@ const decoder = new TextDecoder();
 
 ### 不新增 API
 
-F050 仅消费 F001 / F021 / F040 已定义的接口。**不**新增后端端点。
+F050 仅消费 F001 / F004 / F040 已定义的接口。**不**新增后端端点。
 
 ### 前端目录（预期，M1 落地时按 TDD 迭代）
 
@@ -219,7 +219,7 @@ frontend/src/
 
 ### 7.3 端到端（Playwright，`frontend/e2e/`）
 
-- [ ] **`chat_recommendation.spec.ts`**（沿用 [F021 §7](F021-langgraph-workflow.md) 步骤）：
+- [ ] **`chat_recommendation.spec.ts`**（沿用 [F004 §7](F004-langgraph-workflow.md) 步骤）：
   1. `goto('/')`
   2. 点 `ask-agent`（不输入消息，使用默认 prefs）
   3. 等待 SSE 流：`cuisine_selected` → `cuisine_result` → `restaurant_found` → `weather` → `recommendation` → `done`
@@ -279,7 +279,7 @@ frontend/src/
 ## 9. 关联文档
 
 - 视觉基线：[prototype/index.html](../../prototype/index.html)（1237 行，Aug 30 写入，**只读参考**）
-- SSE 事件来源：[F021 §4 流式 SSE 事件映射](F021-langgraph-workflow.md)
+- SSE 事件来源：[F004 §4 流式 SSE 事件映射](F004-langgraph-workflow.md)
 - 偏好 schema：[F001 §3 偏好字段定义](F001-user-preferences.md)
 - 推荐决策：[F040 §3 决策矩阵](F040-summary-agent.md)
 - 菜系路由：[F002 主 Agent router](F002-main-agent-router.md) + [F003 菜系专家通用契约](F003-cuisine-expert-contract.md)

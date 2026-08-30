@@ -3,7 +3,7 @@
 > **状态**：[ ] 未开始
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003 菜系专家通用契约](F003-cuisine-expert-contract.md)、[F030 餐厅搜索](F030-amap-restaurant-search.md)
-> **被依赖**：[F021 整体工作流](F021-langgraph-workflow.md)、[F040 总结 Agent](F040-summary-agent.md)
+> **被依赖**：[F004 整体工作流](F004-langgraph-workflow.md)、[F040 总结 Agent](F040-summary-agent.md)
 
 ## 1. 用户故事
 

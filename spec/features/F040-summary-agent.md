@@ -3,7 +3,7 @@
 > **状态**：[ ] 未开始
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F001 偏好](F001-user-preferences.md)、[F003 菜系专家契约](F003-cuisine-expert-contract.md)、[F031 天气](F031-amap-weather.md)
-> **被依赖**：[F021 整体工作流](F021-langgraph-workflow.md)
+> **被依赖**：[F004 整体工作流](F004-langgraph-workflow.md)
 
 ## 1. 用户故事
 
@@ -163,7 +163,7 @@ def score_restaurant(
 
 ### 端到端（Playwright）
 
-- [ ] 不直接测；由 F021 覆盖
+- [ ] 不直接测；由 F004 覆盖
 
 ## 9. 待澄清问题
 

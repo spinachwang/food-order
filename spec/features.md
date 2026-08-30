@@ -20,7 +20,7 @@
 - [ ] **F001**：[用户偏好管理](features/F001-user-preferences.md) — 偏好数据模型 + CRUD API + Agent 读取接口（M1 不做登录、不做 feedback）
 - [ ] **F002**：[主 Agent 编排（router）](features/F002-main-agent-router.md) — 解析意图、决定调哪些菜系专家
 - [ ] **F003**：[菜系专家通用契约](features/F003-cuisine-expert-contract.md) — LangGraph Node 接口 / 输入输出 schema / prompt 模板结构
-- [ ] **F021**：[LangGraph 整体工作流](features/F021-langgraph-workflow.md) — State 类型 / 所有 Node / Edge 条件 / checkpoint 策略
+- [ ] **F004**：[LangGraph 整体工作流](features/F004-langgraph-workflow.md) — State 类型 / 所有 Node / Edge 条件 / checkpoint 策略
 
 ### 14 个菜系专家（每个独立 spec）
 
