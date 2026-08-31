@@ -165,35 +165,93 @@ frontend/src/
 │       ├── store.ts                 # Zustand：prefs / address / session_id
 │       ├── components/
 │       │   ├── TopBar.tsx
+│       │   ├── TopBar.module.css
 │       │   ├── Hero.tsx
+│       │   ├── Hero.module.css
 │       │   ├── ContextStrip.tsx
+│       │   ├── ContextStrip.module.css
 │       │   ├── PreferencesPanel.tsx
+│       │   ├── PreferencesPanel.module.css  # chip / toggle / mood / slider 局部作用域
 │       │   ├── RecommendationCard.tsx
+│       │   ├── RecommendationCard.module.css
 │       │   ├── AltCard.tsx
+│       │   ├── AltCard.module.css
 │       │   ├── ThinkingLog.tsx
+│       │   ├── ThinkingLog.module.css
 │       │   ├── AddressEditPopover.tsx
-│       │   └── Footer.tsx
+│       │   ├── Footer.tsx
+│       │   ├── Footer.module.css
+│       │   └── Toaster.tsx          # 全局 toast 容器（自建，详见 §6.x.3）
 │       └── hooks/
 │           ├── useAgentStream.ts    # SSE 解析 + 事件分发
-│           └── usePreferences.ts    # TanStack Query 包装 F001
-├── stores/                          # 全局：device-id、theme（M2 用）
+│           ├── usePreferences.ts    # TanStack Query 包装 F001
+│           └── useToast.ts          # toast push/dismiss（自建）
+├── stores/
+│   └── toastStore.ts                # Zustand：toast 临时队列（全局）
 ├── styles/
 │   ├── tokens.css                   # ← 本 spec §2.2 的全部 CSS 变量（SSOT）
-│   └── global.css
+│   ├── global.css                   # 全局 reset + 排版基础
+│   └── animations.css               # 复用 @keyframes（pulse / shimmer 等）
 └── lib/
     ├── api-client.ts                # fetch 封装 + X-User-Id 自动注入
-    └── sse.ts                       # 通用 SSE parser（Future M2 多会话用）
+    ├── sse.ts                       # 通用 SSE parser（Future M2 多会话用）
+    └── clip.ts                      # navigator.clipboard.writeText 封装（带降级）
 ```
 
 > 本 spec **不约束**具体组件文件名，只约定章节语义与 SSE 事件归属（见 §2.3）；React 落地时的组件拆分留给 TDD 阶段。
 
 ### 前端依赖
 
-- `react` / `react-dom` 18（已在 [package.json](../../frontend/package.json)）
-- `react-router-dom` 6（已声明，M1 单路由不实际使用）
-- `@tanstack/react-query` 5（已声明；用于 F001 偏好缓存）
-- `zustand`（已声明；用于 prefs / session_id 本地状态）
-- 新增：`zod`（F001 schema 校验，防 400）
+#### 6.x.1 已声明（沿用 [package.json](../../frontend/package.json)）
+
+- `react` / `react-dom` 18（基础）
+- `react-router-dom` 6（M1 单路由不实际使用，留 M2 多路由）
+- `@tanstack/react-query` 5（F001 偏好缓存 / 失效）
+- `zustand`（prefs / session_id / toast 队列本地状态）
+
+#### 6.x.2 M1 新增依赖（1 个）
+
+- `zod` — F001 偏好 schema 前后端共用来源；前端在 `PUT /api/v1/preferences` 前本地校验，防 400
+
+#### 6.x.3 M1 不引入 UI 组件库（决策记录）
+
+> **决策**：**M1 不引入任何 UI 组件库**，全部用原生 HTML 元素 + 自定义 CSS 实现。
+>
+> **依据**：
+> 1. prototype（[prototype/index.html](../../prototype/index.html)）风格高度定制（Editorial / Warm Menu），所有视觉都是 OKLch + 自定义 token 调出来的；通用 UI 库（shadcn / MUI / Chakra）要么风格不一致需大量覆写，要么为 95% 用不到的组件付体积成本
+> 2. M1 仅 1 页 / 约 9 个交互组件（chip / toggle / mood / slider / button / card / toast / prompt），自建工作量远小于"装库 + 调样式 + 修 a11y"
+> 3. tech stack 已锁 React + TS + Vite，但未指定 CSS 方案；选原生 CSS + CSS Modules 是 0 运行时成本、1:1 还原 prototype 的最直接路径
+> 4. 全局规则 [web/design-quality.md](~/.claude/rules/web/design-quality.md) "Anti-Template Policy" 明确禁止"看起来像默认 Tailwind / shadcn 模板"的 UI
+
+| 需求 | M1 方案 | 不引库的理由 |
+|---|---|---|
+| Button / Chip / Toggle / Mood | 原生 `<button>` + `aria-pressed` + CSS Modules | prototype 已是这套；通用库要全量覆写样式反而是负担 |
+| Slider | 原生 `<input type="range">` + `::-webkit-slider-thumb` / `::-moz-range-thumb` 样式覆盖 | 原生 a11y 完备（方向键 / Home / End / PageUp-Down） |
+| 焦点态 | 原生 `:focus-visible` | prototype §2.2 已定义 |
+| Toast | **自建** `<Toaster />`：Zustand 临时队列 + fixed 容器 + 入场动画 | 只 3 种类型 × ≤3 条同时显示，自建 < 30 行；引 `sonner` ≈ 2KB 但要加 Provider 配置 |
+| 图标 | 内联 SVG（仅 2 个：share / save） | prototype 已用此方案；引图标库为 2 个图标不值得 |
+| 字体 | `<link rel="preconnect">` + Google Fonts CSS | prototype 同款（Fraunces / Inter / JetBrains Mono） |
+| 剪贴板 | `navigator.clipboard.writeText()` + 降级 `document.execCommand('copy')` | 浏览器原生（封装在 [lib/clip.ts](../../frontend/src/lib/clip.ts)） |
+| 实时时钟 | `setInterval(tick, 30000)` + 原生 `Date` | prototype 已是 |
+| 星期显示 | `Intl.DateTimeFormat('zh-CN', { weekday: 'long' })` | 原生足够 |
+| 动画 | 原生 CSS `transition` / `@keyframes` | prototype 已定义 |
+| 响应式 | CSS `@media` + `grid-template-columns` | prototype 已定义（§2.5） |
+| Modal / Dialog | **M1** 用 `window.prompt()`（addr-edit）；**M2** 升级为 Radix Dialog 或高德选址组件 | 见 §8 #5 决议 |
+
+#### 6.x.4 M2 候选（暂不引入，仅写入供后续 review）
+
+- `radix-ui` Primitives — Dialog（addr-edit 升级版，替代 `window.prompt`）/ Popover（hover 详情）/ Tooltip（chip 说明 / a11y 增强）
+- `sonner` — 如果 Toaster 复杂度超出预期（如 promise toast / 多队列）
+- `clsx` — 条件 className（`cx('chip', pressed && 'chip-active')`），视需要再加
+- `vaul` — 移动端 drawer（如需 M2 历史 / 收藏夹抽屉）
+
+#### 6.x.5 CSS 方案（固定）
+
+**原生 CSS + CSS Modules + `:root` 全局 token**（§2.2 OKLch 变量）。**不引** Tailwind / styled-components / Emotion：
+
+- prototype 已定义全部 token（OKLch / 字体 / 圆角 / 阴影），原生 CSS 0 运行时成本
+- 1:1 还原 prototype 的视觉（避免 Tailwind utility class 在 OKLch 上要写任意值 `bg-[oklch(98%_0.012_80)]` 反而难读）
+- CSS Modules 提供局部作用域，避免与全局 `.card` / `.chip` / `.toggle` 冲突
 
 ## 7. 测试计划
 
@@ -295,3 +353,4 @@ frontend/src/
 | 2026-08-30 | 0.2 | §8 待澄清问题全部决议（用户确认）；§2.4 按钮契约具体化；§3 偏好映射按新 schema 重写；同步更新 [F001 §3.1](../features/F001-user-preferences.md)（新增 `fried_food`）、[F001 §3.4](../features/F001-user-preferences.md)（新增 `temperature_preference`）、[F001 §4 TypedDict](../features/F001-user-preferences.md)、[F001 §6 错误码](../features/F001-user-preferences.md)（新增 `INVALID_TEMPERATURE`；顺手修复 `INVALID_ALLERGY` 误引 §3.2 → §3.1） |
 | 2026-08-30 | 0.3 | **M1 不做 feedback**：移除 §2.4 中 `go-eat` / `save-eat` 的 `/feedback` 调用，§4.4 改写为占位，目录结构移除 `useFeedback.ts`，§8 #2 决议改为"不存"；§5 401 行改为 M2 预留 |
 | 2026-08-30 | 0.4 | **M1 不做登录**：§5 401 行更新为"M1 后端不会返回 401" |
+| 2026-08-31 | 0.5 | §6 增补前端技术选型（决策表）：**M1 不引入任何 UI 组件库**（全部原生元素 + CSS Modules + 自定义 CSS）；新增依赖仅 `zod`；CSS 方案锁定原生 CSS + CSS Modules + `:root` OKLch token；M2 候选清单（`radix-ui` Primitives / `sonner` / `clsx` / `vaul`）写入但暂不引入；前端目录增补 `Toaster.tsx` / `useToast.ts` / `stores/toastStore.ts` / `animations.css` / `lib/clip.ts`，并按"每个组件配一个 .module.css"原则补全局部样式文件 |
