@@ -30,6 +30,11 @@ build/
 .vite/
 *.local
 
+# TypeScript 增量构建缓存（tsc -b 输出）+ tsconfig.node.json 引用的配置文件 emit 产物
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
 # ============ 日志与运行时 ============
 *.log
 .DS_Store
