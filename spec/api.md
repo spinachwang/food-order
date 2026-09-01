@@ -60,6 +60,7 @@
     "cuisine_weights": { "sichuan": 0.8, "cantonese": 0.5 },
     "allergies": ["peanut"],
     "spice_tolerance": 2,
+    "temperature_preference": "room",
     "default_location": "国贸三期",
     "budget_lunch_min": "20.00",
     "budget_lunch_max": "60.00"
@@ -78,6 +79,7 @@
   "cuisine_weights": { "sichuan": 0.8, "cantonese": 0.5 },
   "allergies": ["peanut"],
   "spice_tolerance": 2,
+  "temperature_preference": "room",
   "default_location": "国贸三期",
   "budget_lunch_min": "20.00",
   "budget_lunch_max": "60.00"

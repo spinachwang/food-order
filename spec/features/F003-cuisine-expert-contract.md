@@ -25,6 +25,7 @@
 ### 3.1 LangGraph Node 接口
 
 ```python
+from abc import ABC, abstractmethod
 from typing import TypedDict
 from langgraph.graph import Node
 
@@ -42,14 +43,28 @@ class CuisineExpertOutput(TypedDict):
     keywords: list[str]                  # 传给 F030 的搜索关键词
     matched_allergies: list[str]         # 该菜系下需要避开的过敏原（用于 summary agent 二次校验）
 
-class BaseCuisineExpert(Protocol):
-    cuisine_id: str
-    display_name: str                    # 中文显示名（"川菜"）
-    llm_model: str = "MiniMax-M3"        # 统一使用同一模型（详见 §8.1）
+class BaseCuisineExpert(ABC):
+    """抽象基类（F003 §2 验收点：每个菜系 Node 继承本类）。
 
-    def build_prompt(self, inp: CuisineExpertInput) -> str: ...
-    def parse_output(self, raw: str) -> CuisineExpertOutput: ...
-    def run(self, state: AgentState) -> PartialState: ...   # LangGraph Node 入口
+    TODO(M2): matched_allergies 字段是否保留待 F003 §7 决议。
+    """
+    cuisine_id: str                      # 子类必须重写（与 F003 §3.2 cuisine_id 一致）
+    display_name: str                    # 中文显示名（"川菜"）；子类必须重写
+    llm_model: str = "MiniMax-M3"        # 统一使用同一模型（详见 §8.1）
+    prompt_fragment: str = ""            # 菜系专属 prompt 片段；子类可选重写
+
+    def build_prompt(self, inp: CuisineExpertInput) -> str:
+        """默认实现：拼接 fragment + 公共模板。子类可选 override。"""
+        ...
+
+    def parse_output(self, raw: str) -> CuisineExpertOutput:
+        """默认 JSON parse + 降级（详见 §3.3）。子类继承即可。"""
+        ...
+
+    @abstractmethod
+    async def run(self, state: AgentState) -> dict[str, object]:
+        """LangGraph Node 入口；Phase 1 抛 NotImplementedError（F004 范围）。"""
+        ...
 ```
 
 ### 3.2 菜系标识符（cuisine_id）枚举
@@ -75,7 +90,7 @@ CUISINE_REGISTRY = {
 
 ### 3.3 错误与重试
 
-- LLM 解析失败 → 重试 1 次，仍失败则该菜系 Node 输出 `conclusion="暂不可推荐"` + `keywords=[]`，主流程降级到其他菜系
+- **LLM 解析失败 → 重试 1 次（归属 expert 层，不在 provider 层做）**：LLM provider 层只对 HTTP 5xx / 429 / timeout 做 transport-level 重试（exponential backoff，可配置 max_retries）；`BaseCuisineExpert.parse_output` 收到 raw 字符串后做 1 次 JSON parse 重试，仍失败则该菜系 Node 输出 `conclusion="暂不可推荐"` + `keywords=[]`，主流程降级到其他菜系
 - `keywords` 为空 → 跳过 F030 调用，不向 summary agent 提供餐厅
 - 单个菜系 Node 异常 → **不中断**整体工作流，由 summary agent 决定如何处理（详见 F040）
 
