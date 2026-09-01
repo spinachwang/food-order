@@ -61,10 +61,45 @@ AgentState = TypedDict(
         "user_preferences": NotRequired[UserPreferencesDict],
         "location_override": NotRequired[str | None],
         "selected_cuisines": NotRequired[list[str]],
+        # TODO(F004): F002 §3.2 spec writes `list[CuisineExpertOutput]`, but the
+        # code uses `dict[str, CuisineExpertOutput]` (keyed by cuisine_id, which
+        # is more natural for LangGraph parallel fan-in). The router does NOT
+        # read this field, so we leave it as-is and let F004 own the resolution.
         "cuisine_results": NotRequired[dict[str, CuisineExpertOutput]],
         "weather": NotRequired[dict[str, object]],           # F031
         "restaurants": NotRequired[dict[str, list[dict[str, object]]]],  # F030 by cuisine
         "recommendation": NotRequired[dict[str, object]],    # F040 final
         "errors": NotRequired[list[dict[str, str]]],
+        # ----- F002 — routing observability -----
+        "routing_reason": NotRequired[str],  # ≤30 字，公开给前端（F050 渲染）
+        "routing_log": NotRequired[list["RoutingLogEntry"]],
     },
 )
+
+
+# ----- F002 — router observability & node return shape -----
+
+
+class RoutingLogEntry(TypedDict):
+    """One entry in `AgentState.routing_log`.
+
+    `layer` is one of: "rule", "fuzzy", "llm", "allergy", "fallback".
+    """
+
+    ts: str               # ISO-8601 UTC, 便于前端排序与 grep
+    layer: str            # 哪一层做了决策
+    detail: str           # 人类可读的决策说明（如 "matched spicy" / "零候选：忌口"）
+    elapsed_ms: int       # 该层耗时（毫秒），规则/模糊层断言 <100ms
+
+
+class RouterOutput(TypedDict, total=False):
+    """Partial state returned by the F002 router node.
+
+    All fields are optional (NotRequired) so the node only writes what it
+    actually decided — F004's graph reducer merges into `AgentState`.
+    """
+
+    selected_cuisines: list[str]
+    routing_reason: str
+    routing_log: list[RoutingLogEntry]
+    errors: list[dict[str, str]]

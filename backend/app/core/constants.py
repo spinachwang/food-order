@@ -53,3 +53,9 @@ TEMPERATURE_VALUES: frozenset[str] = frozenset({"cold", "room", "hot"})
 
 # F003 §8.1 — unified LLM model across all 14 cuisine experts.
 DEFAULT_LLM_MODEL: str = "MiniMax-M3"
+
+# F002 §3.3 — neutral cuisine weight when `user_preferences.cuisine_weights`
+# is missing or a cuisine has no recorded preference yet. The router uses this
+# as the fallback for any cuisine not present in `cuisine_weights` (e.g. legacy
+# payloads, first-time visitors) so weighted random sampling still works.
+NEUTRAL_CUISINE_WEIGHT: float = 0.5

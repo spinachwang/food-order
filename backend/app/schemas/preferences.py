@@ -35,6 +35,7 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from app.core.constants import (
     ALLERGY_VALUES,
     CUISINE_IDS,
+    NEUTRAL_CUISINE_WEIGHT,
     SPICE_TOLERANCE_RANGE,
     TEMPERATURE_VALUES,
 )
@@ -157,5 +158,10 @@ class PreferencesRead(_PreferencesBase):
 
 
 def default_cuisine_weights() -> dict[str, float]:
-    """All 14 cuisines at neutral weight 0.5 — used when no record exists yet."""
-    return {cuisine: 0.5 for cuisine in CUISINE_IDS}
+    """All 14 cuisines at neutral weight — used when no record exists yet.
+
+    The neutral weight lives in `app.core.constants.NEUTRAL_CUISINE_WEIGHT`
+    so the F002 router can import the same value without an `agents →
+    schemas` reverse import.
+    """
+    return {cuisine: NEUTRAL_CUISINE_WEIGHT for cuisine in CUISINE_IDS}
