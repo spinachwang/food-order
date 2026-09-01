@@ -85,7 +85,7 @@ async def amap_get_weather(location: str) -> WeatherInfo:
 
 ### 端到端（Playwright）
 
-- [ ] 不直接测；由 F021 覆盖
+- [ ] 不直接测；由 F004 覆盖
 
 ## 9. 待澄清问题
 

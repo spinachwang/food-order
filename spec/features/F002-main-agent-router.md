@@ -2,7 +2,7 @@
 
 > **状态**：[ ] 未开始
 > **所属里程碑**：M1 Agent MVP
-> **依赖**：F001（读取偏好）、F003（菜系专家契约）、F021（整体工作流定义入口）
+> **依赖**：F001（读取偏好）、F003（菜系专家契约）、F004（整体工作流定义入口）
 > **被依赖**：F040（总结 Agent 接收 cuisine_results）
 
 ## 1. 用户故事
@@ -13,12 +13,17 @@
 
 - [ ] 接收 `user_message` 后 1 秒内完成菜系路由决策
 - [ ] 路由决策可解释：返回 `selected_cuisines: list[str]` 与 `routing_reason: str`
+- [ ] **双层路由** ：
+  - 第一层：**规则优先**（关键词 + 菜系权重的硬匹配），命中即短路返回，**不调用 LLM**
+  - 第二层：**LLM 兜底**（§4 prompt），规则未命中时才走 LLM
 - [ ] 路由策略：
-  - **明确意图**（如"想吃辣的"）→ 匹配菜系集合（川 + 湘）
-  - **模糊意图**（如"随便推荐"）→ 根据 `cuisine_weights` 抽样 2–3 个
-  - **无匹配**（消息为空 / 乱码）→ 返回错误事件，不进入下游
+  - **明确意图**（如"想吃辣的"）→ 匹配菜系集合（川 + 湘）— 规则层处理
+  - **模糊意图**（如"随便推荐"）→ 根据 `cuisine_weights` 抽样 2–3 个 — 规则层处理
+  - **灰色地带**（如"想吃点暖胃的"）→ 规则未命中，降级到 LLM 兜底
+  - **无匹配**（消息为空 / 乱码）→ 第一层直接返回错误事件，不进入第二层
+- [ ] **`routing_reason` 暴露给前端**：≤30 字、人话风格（如"你说想吃辣的 → 川 + 湘"），由 F050 在回复气泡中渲染
 - [ ] 满足忌口过滤：若用户 `allergies` 与某菜系 100% 冲突（如花生过敏 + 川菜常用花生油），该菜系权重临时置 0
-- [ ] 路由决策日志可观测：写入 `AgentState.routing_log`
+- [ ] 路由决策日志可观测：写入 `AgentState.routing_log`；**M1 不落库**（决策仅留在内存 + 日志，路由决策落库分析推到 M2）
 
 ## 3. 输入 / 输出
 
@@ -47,24 +52,31 @@ class AgentState(TypedDict):
     errors: list[dict]                   # 全局错误收集
 ```
 
-### 3.3 路由策略
+### 3.3 路由策略（双层：规则优先 → LLM 兜底）
 
 ```text
-意图识别（LLM 或规则）
-├── "想吃辣的/麻辣"   → [sichuan, hunan]
-├── "清淡/养生"        → [cantonese, suzhou, zhejiang]
-├── "日料/寿司/刺身"  → [japanese]
-├── "西餐/牛排"        → [western]
-├── "快餐/快/饱"       → [western_fastfood, chinese_fastfood]
-├── "小吃/夜宵/街边"  → [snacks]
-├── "甜品/奶茶/咖啡"  → [dessert_drinks]
-├── "随便" / 模糊      → 按 cuisine_weights top-2/3 抽样
-└── 其他/空            → 默认 cuisine_weights top-2
+第一层：规则引擎（关键词 + 偏好权重，硬匹配）
+├── "想吃辣的/麻辣"   → [sichuan, hunan]                       ✅ 短路
+├── "清淡/养生"        → [cantonese, suzhou, zhejiang]         ✅ 短路
+├── "日料/寿司/刺身"  → [japanese]                             ✅ 短路
+├── "西餐/牛排"        → [western]                             ✅ 短路
+├── "快餐/快/饱"       → [western_fastfood, chinese_fastfood]  ✅ 短路
+├── "小吃/夜宵/街边"  → [snacks]                              ✅ 短路
+├── "甜品/奶茶/咖啡"  → [dessert_drinks]                      ✅ 短路
+├── "随便" / 模糊      → 按 cuisine_weights top-2/3 抽样        ✅ 短路
+└── 未命中              ↓ 降级到第二层
+                                ↓
+第二层：LLM 兜底（§4 prompt，处理"灰色地带"）
+└── LLM 输出            → [cuisines...] + routing_reason        ✅ 进入下游
 ```
 
-**忌口过滤**：在最终 `selected_cuisines` 之前，对每个候选菜系查 F003 §4 菜系专属提示中的"过敏原注意"。若 100% 冲突，从列表中剔除并记日志。
+**空消息 / 乱码**：第一层就拒绝，不进入第二层，直接返回 `EMPTY_MESSAGE` 错误事件。
 
-## 4. Prompt 模板（router 自身）
+**忌口过滤**：在最终 `selected_cuisines` 之前（无论哪一层），对每个候选菜系查 F003 §4 菜系专属提示中的"过敏原注意"。若 100% 冲突，从列表中剔除并记日志。
+
+## 4. Prompt 模板（router LLM 兜底阶段的输入）
+
+> 仅当第一层规则未命中时调用；规则层命中场景不进入此 prompt。
 
 ```text
 你是"午餐决策助手"的路由 Agent。决定调哪些菜系专家。
@@ -110,11 +122,14 @@ class AgentState(TypedDict):
 
 ### 单元测试
 
+- [ ] **规则层短路**：明确关键词（"想吃辣的"）命中时，**mock LLM 不被调用**，直接返回 `[sichuan, hunan]`
 - [ ] 规则路由：`"想吃辣的"` → `[sichuan, hunan]`
 - [ ] 规则路由：`"清淡的"` → `[cantonese, suzhou]`
+- [ ] **LLM 兜底**：规则未命中（"想吃点暖胃的"）→ mock LLM 被调用，返回 LLM 给出的菜系列表
 - [ ] 模糊路由：`"随便"` + `cuisine_weights={"sichuan":0.9}` → `[sichuan, ...]`
+- [ ] **routing_reason 格式**：LLM 兜底输出 `routing_reason` 长度 ≤30 字、人话风格（如"暖胃的 → 粤 + 苏"），可被前端直接渲染
 - [ ] 忌口过滤：花生过敏 + 高川菜权重 → 川菜被剔除
-- [ ] 空消息 → `EMPTY_MESSAGE`
+- [ ] 空消息 → `EMPTY_MESSAGE`（**不进入 LLM 兜底**）
 
 ### 集成测试
 
@@ -122,10 +137,4 @@ class AgentState(TypedDict):
 
 ### 端到端（Playwright）
 
-- [ ] 不直接测；由 F021 覆盖
-
-## 8. 待澄清问题
-
-- 是否引入规则优先 + LLM 兜底的双层路由（先用关键词规则快速过滤，再让 LLM 兜底）？默认是
-- `routing_reason` 是否要暴露给前端用户？默认**不暴露**（避免"AI 心声"暴露）
-- 路由决策是否要落库用于后续分析？M1 不做
+- [ ] 不直接测；由 F004 覆盖

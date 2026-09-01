@@ -3,7 +3,7 @@
 > **状态**：[ ] 未开始
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：F001（用户偏好）、F030（餐厅搜索）
-> **被依赖**：F010–F024（14 个菜系专家）、F021（整体工作流）
+> **被依赖**：F010–F024（14 个菜系专家）、F004（整体工作流）
 
 本 spec 是 14 个菜系专家（川 / 粤 / 鲁 / 苏 / 浙 / 闽 / 湘 / 徽 / 日料 / 西餐 / 西式快餐 / 中式快餐 / 小吃 / 甜品饮品）的**共同骨架**。每个具体菜系 spec 必须**引用并遵循**本文档的契约，不重复定义。
 
@@ -45,6 +45,7 @@ class CuisineExpertOutput(TypedDict):
 class BaseCuisineExpert(Protocol):
     cuisine_id: str
     display_name: str                    # 中文显示名（"川菜"）
+    llm_model: str = "MiniMax-M3"        # 统一使用同一模型（详见 §8.1）
 
     def build_prompt(self, inp: CuisineExpertInput) -> str: ...
     def parse_output(self, raw: str) -> CuisineExpertOutput: ...
@@ -136,10 +137,23 @@ CUISINE_REGISTRY = {
 
 ### 端到端（Playwright）
 
-- [ ] 不直接测；由 F021（整体工作流）的 e2e 覆盖
+- [ ] 不直接测；由 F004（整体工作流）的 e2e 覆盖
 
 ## 7. 待澄清问题
 
-- LLM 选型：默认 Claude Sonnet 4.6（CLAUDE.md 全局规则），各菜系可用同一模型；是否需要按菜系难度切模型？
-- 关键词语言：默认中文，是否需要双语（便于高德 POI 匹配）？
 - `matched_allergies` 字段是否真的必要（summary agent 也可自查）？可后续精简
+
+## 8. 技术约定（暂定）
+
+> 以下决策为 M1 阶段的临时约定，等后续迭代或接入真实 LLM 服务后再评估是否调整。
+
+### 8.1 LLM 选型
+
+- **统一使用 `MiniMax-M3`**，所有 14 个菜系 Node 共享同一模型
+- 不按菜系难度切模型（暂定；后续若出现明显能力/成本瓶颈再扩展）
+- 在 `BaseCuisineExpert` 上以类属性 `llm_model: str = "MiniMax-M3"` 暴露，便于后续统一切换
+
+### 8.2 语言约定
+
+- **统一使用中文**：prompt 模板、LLM 输出、`keywords` 列表全部使用中文
+- keywords 仅中文，不做双语（暂定；后续若高德 POI 匹配率不足再评估）

@@ -89,3 +89,43 @@ ADR 0001 确立了 `food-order` 仓库的初始技术栈（FastAPI + Vite/React 
 - 14 菜系专家 + LangGraph 编排 + 高德 MCP + Web 聊天壳四大件保留
 - `CLAUDE.md` 中"技术栈"表保留原选型
 - 编号体系不变
+
+---
+
+### 2026-08-31 — 路由层细节
+
+> 用户拍板 F002 主 Agent router 的三条实现细节：(a) 引入规则优先 + LLM 兜底的双层路由；(b) `routing_reason` 暴露给前端；(c) 路由决策 M1 不落库。
+> 同步影响 [../features/F002-main-agent-router.md](../features/F002-main-agent-router.md)，其它 spec 不受影响。
+
+**变更摘要：**
+
+1. **双层路由**：F002 router 改为两层——第一层是**规则引擎**（关键词 + 偏好权重硬匹配），命中即短路返回，**不调用 LLM**；第一层未命中（"灰色地带"，如"想吃点暖胃的"）才降级到第二层 **LLM 兜底**（§4 prompt）。降低延迟与 token 成本。
+
+2. **`routing_reason` 暴露给前端**：推翻原"避免 AI 心声暴露"默认——`routing_reason` 改为在 F050 的回复气泡中渲染给用户。要求 ≤30 字、人话风格（如"你说想吃辣的 → 川 + 湘"）。LLM prompt 的输出契约相应收紧。
+
+3. **路由决策 M1 不落库**：决策仅保留在 `AgentState.routing_log`（内存 + 日志），不写入数据库。`routing_decisions` 表 / 路由分析看板推到 M2。
+
+**未变化：**
+
+- F002 的对外契约（输入 / 输出 schema、忌口过滤、错误码）保持兼容
+- LangGraph 编排整体结构（F021）不变
+- 菜系专家并行执行不受影响
+
+---
+
+### 2026-08-31 — F021 重命名为 F004（号段对齐）
+
+> F021（LangGraph 整体工作流）的内容属基础设施，原编号与"01x–02x 菜系专家"号段含义不符。重命名为 F004，归入 `F00x` 基础设施号段。
+> 同步影响 [../features.md](../features.md) / [../roadmap.md](../roadmap.md) / [../features/F002-main-agent-router.md](../features/F002-main-agent-router.md) / [../features/F003-cuisine-expert-contract.md](../features/F003-cuisine-expert-contract.md) / [../features/F010-sichuan.md](../features/F010-sichuan.md) / [../features/F030-amap-restaurant-search.md](../features/F030-amap-restaurant-search.md) / [../features/F031-amap-weather.md](../features/F031-amap-weather.md) / [../features/F040-summary-agent.md](../features/F040-summary-agent.md) / [../features/F050-chat-shell.md](../features/F050-chat-shell.md)。
+
+**变更摘要：**
+
+1. **文件重命名**：`spec/features/F021-langgraph-workflow.md` → `spec/features/F004-langgraph-workflow.md`（用 `git mv` 保留历史，非历史重写）。
+2. **号段规则修订**：`F00x` 明确为"基础设施"号段（成员：F001 偏好 / F002 router / F003 专家契约 / **F004 LangGraph 工作流**）；`F01x–F02x` 仍为"菜系专家"号段；F021 不再插队占用专家号段位。
+3. **依赖引用同步**：上述 10 个文件内的 `F021` / `F021-langgraph-workflow.md` 字面量全部替换为 `F004` / `F004-langgraph-workflow.md`。
+
+**未变化：**
+
+- 本 ADR 第 49 行"编号体系"描述与第 111 行"LangGraph 编排整体结构（F021）不变"作为历史决策保留，**不事后修改**——但当下生效的编号以 F004 为准。
+- F004 文件内容（State 类型、Node 列表、Edge 条件、SSE 事件、checkpoint 等）一字未动。
+- **编号空间澄清**：M0 时期原 features.md 中 `[ARCHIVED-M0] F004`（提交订单（未支付））与 M1 新 `F004`（LangGraph 工作流）编号相同，但属于不同里程碑 / 不同范畴，**不冲突**——M0 区段已显式标记 `[ARCHIVED-M0]`，且本 ADR 第 49 行明确"原 F001–F020 标记 `[ARCHIVED-M0]`，新增 F001/F002/F003/F010–F024/…"，即 M1 编号体系自 ADR 0002 起独立编号。
