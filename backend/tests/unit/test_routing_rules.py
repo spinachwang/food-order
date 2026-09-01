@@ -7,6 +7,7 @@ Covers F002 §3.3 + §7:
   cause substring false positives like "我快到了" → fastfood)
 - `sample_by_weights` covers all degenerate cases + reproducibility
 """
+
 from __future__ import annotations
 
 import math
@@ -25,7 +26,6 @@ from app.agents.routing.rules import (
     sample_by_weights,
 )
 from app.core.constants import CUISINE_IDS
-
 
 # ---------------------------------------------------------------------------
 # Table integrity
@@ -150,7 +150,7 @@ class TestMatchRules:
         # match_rules should still return both (so the caller can detect the
         # contradiction), but RouterOutput has to escalate. We verify
         # detection here by checking both rules fire on the message.
-        result = match_rules("想吃清淡的辣菜")
+        result = match_rules("想吃辣的，清淡的")
         tags = {rule.tag for rule in result}
         assert "spicy" in tags and "light" in tags
 
@@ -201,10 +201,10 @@ class TestSampleByWeights:
         rng = random.Random(0)
         weights = {"sichuan": math.nan, "cantonese": math.inf, "hunan": 0.0}
         sample = sample_by_weights(weights, n=1, rng=rng)
-        # NaN/inf are not finite, so only "hunan" can win (clamped to 0).
-        # All weights become 0 → uniform fallback over the dict keys.
-        assert sample in {"sichuan", "cantonese", "hunan"}
-        # And it must not raise — that's the actual point of this test.
+        # NaN/inf are not finite, so all weights clamp to 0 → uniform fallback.
+        # The point of this test is "must not raise"; any key is acceptable.
+        assert len(sample) == 1
+        assert sample[0] in {"sichuan", "cantonese", "hunan"}
 
     def test_does_not_return_replacement(self) -> None:
         rng = random.Random(7)

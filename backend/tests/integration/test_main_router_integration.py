@@ -5,6 +5,7 @@ every downstream cuisine expert can resolve from `CUISINE_REGISTRY`.
 This is the F002 §7 "integration" coverage — proves the chain holds end-to-end
 on a real DB session. Requires MySQL test schema up.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,14 +13,13 @@ import random
 from decimal import Decimal
 from typing import Any
 
-import pytest
 from app.agents.cuisines import CUISINE_REGISTRY
 from app.agents.llm.testing import FakeLLMProvider
 from app.agents.main_router import route_cuisines
 from app.agents.state import AgentState
 from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
-from app.services.preferences import load_preferences, upsert_preferences
 from app.schemas.preferences import PreferencesUpdate
+from app.services.preferences import load_preferences, upsert_preferences
 from fastapi.testclient import TestClient
 
 
@@ -79,7 +79,7 @@ class TestRoutingEndToEnd:
 
         provider = FakeLLMProvider()
         # Program the LLM to return two cuisines that ARE in the registry.
-        provider.set_response(  # type: ignore[arg-type]
+        provider.set_response(
             {
                 "content": (
                     '{"selected_cuisines": ["suzhou", "japanese"], '
@@ -93,7 +93,7 @@ class TestRoutingEndToEnd:
         # Act
         out = asyncio.run(
             route_cuisines(
-                _state_with_prefs("想吃点清淡的", prefs),
+                _state_with_prefs("想吃点暖胃的", prefs),
                 provider=provider,
                 rng=random.Random(0),
             )
@@ -110,9 +110,7 @@ class TestRoutingEndToEnd:
     ) -> None:
         # Arrange — no row → defaults (all 14 cuisines at NEUTRAL_CUISINE_WEIGHT).
         prefs = load_preferences(db_session, random_user_id)
-        assert all(
-            w == NEUTRAL_CUISINE_WEIGHT for w in prefs["cuisine_weights"].values()
-        )
+        assert all(w == NEUTRAL_CUISINE_WEIGHT for w in prefs["cuisine_weights"].values())
         # Sample 1 cuisine to keep the test deterministic.
         sample = next(iter(prefs["cuisine_weights"]))
         assert sample in CUISINE_IDS

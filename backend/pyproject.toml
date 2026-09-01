@@ -13,13 +13,22 @@ ignore = ["E501"]
 "app/agents/cuisines/stubs/*.py" = ["RUF001"]
 "tests/**/*.py" = ["RUF001", "N806"]
 # Functional TypedDict syntax is clearer for NotRequired fields.
-"app/agents/state.py" = ["UP013"]
+# F002 扩展的 RoutingLogEntry / RouterOutput 含中文注释，统一加 RUF00x 忽略。
+"app/agents/state.py" = ["UP013", "RUF001", "RUF002", "RUF003"]
 # Depends(...) defaults are the canonical FastAPI pattern.
 "app/api/**/*.py" = ["B008"]
 # SessionLocal mirrors SQLAlchemy idiom.
 "app/core/db.py" = ["N806"]
 # Comments intentionally use Chinese full-width punctuation to label semantics.
 "app/core/constants.py" = ["RUF003"]
+# F002 routing modules embed Chinese 规则文案 + 中文 docstring full-width punctuation.
+"app/agents/main_router.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/routing/*.py" = ["RUF001", "RUF002", "RUF003"]
+# F002 路由测试的注释 / 字符串含大量中文全角标点，与产品文案保持一致。
+"tests/unit/test_main_router.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+"tests/unit/test_routing_rules.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+"tests/unit/test_routing_allergies.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+"tests/integration/test_main_router_integration.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 
 [tool.ruff.format]
 quote-style = "double"

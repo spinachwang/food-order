@@ -14,6 +14,7 @@ Covers the full F002 §3.3 control flow on a per-path basis:
 These tests should drive the RED state before `main_router.py` and
 `routing/` exist — the import will fail.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,7 +37,6 @@ from app.agents.state import AgentState, RoutingLogEntry, UserPreferencesDict
 from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
 from app.core.exceptions import LLMTimeoutError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -53,7 +53,8 @@ def _prefs(**overrides: Any) -> UserPreferencesDict:
         "budget_lunch_min": Decimal("30.00"),
         "budget_lunch_max": Decimal("80.00"),
     }
-    base.update(overrides)
+    for key, value in overrides.items():
+        base[key] = value  # type: ignore[literal-required]
     return base
 
 
@@ -105,9 +106,7 @@ class TestConstants:
 class TestRuleLayerShortCircuit:
     def test_spicy_short_circuits_without_llm(self) -> None:
         provider = FakeLLMProvider()
-        out = _run(
-            route_cuisines(_state("想吃辣的"), provider=provider)
-        )
+        out = _run(route_cuisines(_state("想吃辣的"), provider=provider))
         assert out["selected_cuisines"] == ["sichuan", "hunan"]
         assert provider.calls == [], "rule layer must not call LLM"
 
@@ -195,14 +194,14 @@ class TestIntentTagPriority:
         assert provider.calls == []
 
     def test_contradictory_modifiers_escalate_to_llm(self) -> None:
-        # "想吃清淡的辣菜" — spicy + light both fire, no explicit naming
+        # "想吃辣的，清淡的" — spicy + light both fire, no explicit naming
         # → must NOT merge, must escalate to LLM.
         provider = FakeLLMProvider(
             response=_llm_response(
                 '{"selected_cuisines": ["cantonese"], "routing_reason": "帮你折中一下 → 粤"}'
             )
         )
-        out = _run(route_cuisines(_state("想吃清淡的辣菜"), provider=provider))
+        out = _run(route_cuisines(_state("想吃辣的，清淡的"), provider=provider))
         assert provider.calls, "contradictory modifiers must reach the LLM"
         assert out["selected_cuisines"] == ["cantonese"]
 
@@ -225,13 +224,14 @@ class TestLLMFallback:
 
     def test_unknown_cuisine_id_dropped(self) -> None:
         # LLM hallucinates a non-existent cuisine — silently dropped.
+        # Use a gray-zone message ("想吃点暖胃的") so the rule layer does NOT
+        # fire and the LLM is actually reached.
         provider = FakeLLMProvider(
             response=_llm_response(
-                '{"selected_cuisines": ["suzhou", "atlantis_cuisine"], '
-                '"routing_reason": "苏帮菜"}'
+                '{"selected_cuisines": ["suzhou", "atlantis_cuisine"], "routing_reason": "苏帮菜"}'
             )
         )
-        out = _run(route_cuisines(_state("想吃点清淡的"), provider=provider))
+        out = _run(route_cuisines(_state("想吃点暖胃的"), provider=provider))
         assert "atlantis_cuisine" not in out["selected_cuisines"]
         assert "suzhou" in out["selected_cuisines"]
 
@@ -239,33 +239,18 @@ class TestLLMFallback:
         provider = FakeLLMProvider(response=_llm_response("not json at all"))
         # Seed preferences so top-1 is sichuan.
         prefs = _prefs(cuisine_weights={"sichuan": 1.0, "cantonese": 0.5})
-        out = _run(
-            route_cuisines(
-                _state("想吃点暖胃的", preferences=prefs), provider=provider
-            )
-        )
+        out = _run(route_cuisines(_state("想吃点暖胃的", preferences=prefs), provider=provider))
         assert out["selected_cuisines"] == ["sichuan"]
-        assert any(
-            e.get("code") == NO_CUISINE_MATCHED
-            for e in out.get("errors", [])
-        ), out
+        assert any(e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", [])), out
 
     def test_null_selected_cuisines_degrades(self) -> None:
         provider = FakeLLMProvider(
-            response=_llm_response(
-                '{"selected_cuisines": null, "routing_reason": "?"}'
-            )
+            response=_llm_response('{"selected_cuisines": null, "routing_reason": "?"}')
         )
         prefs = _prefs(cuisine_weights={"hunan": 1.0})
-        out = _run(
-            route_cuisines(
-                _state("想吃点暖胃的", preferences=prefs), provider=provider
-            )
-        )
+        out = _run(route_cuisines(_state("想吃点暖胃的", preferences=prefs), provider=provider))
         assert out["selected_cuisines"] == ["hunan"]
-        assert any(
-            e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", [])
-        )
+        assert any(e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", []))
 
     def test_timeout_degrades_without_raising(self) -> None:
         # Provider that hangs forever — wait_for should time out.
@@ -286,9 +271,7 @@ class TestLLMFallback:
             )
         )
         assert out["selected_cuisines"] == ["hunan"]
-        assert any(
-            e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", [])
-        )
+        assert any(e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", []))
 
     def test_llm_raises_domain_error_degrades_without_raising(self) -> None:
         class _Explodes:
@@ -307,9 +290,7 @@ class TestLLMFallback:
             )
         )
         assert out["selected_cuisines"] == ["hunan"]
-        assert any(
-            e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", [])
-        )
+        assert any(e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", []))
 
 
 # ---------------------------------------------------------------------------
@@ -322,16 +303,18 @@ class TestAmbientSampling:
         provider = FakeLLMProvider()
         out_a = _run(
             route_cuisines(
-                _state("随便",
-                       preferences=_prefs(cuisine_weights={"sichuan": 0.9, "cantonese": 0.1})),
+                _state(
+                    "随便", preferences=_prefs(cuisine_weights={"sichuan": 0.9, "cantonese": 0.1})
+                ),
                 provider=provider,
                 rng=random.Random(2026),
             )
         )
         out_b = _run(
             route_cuisines(
-                _state("随便",
-                       preferences=_prefs(cuisine_weights={"sichuan": 0.9, "cantonese": 0.1})),
+                _state(
+                    "随便", preferences=_prefs(cuisine_weights={"sichuan": 0.9, "cantonese": 0.1})
+                ),
                 provider=provider,
                 rng=random.Random(2026),
             )
@@ -387,8 +370,7 @@ class TestAllergyFilter:
         )
         out = _run(
             route_cuisines(
-                _state("想吃点清淡的",
-                       preferences=_prefs(allergies=["shellfish"])),
+                _state("想吃点清淡的", preferences=_prefs(allergies=["shellfish"])),
                 provider=provider,
             )
         )
@@ -413,37 +395,40 @@ class TestAllergyFilter:
         # Construct a scenario where allergy filter wipes everything.
         # Peanut + western_fastfood + shellfish allergies vs a rule that
         # would otherwise only return sichuan/western_fastfood/fujian.
+        # spicy returns [sichuan, hunan]; peanut removes sichuan, hunan
+        # is not in conflict table, so the first branch returns ["hunan"]
+        # — NOT empty. The narrower test below forces the ALL_CUISINES_FILTERED
+        # path with only two weighted cuisines, both conflicted.
         provider = FakeLLMProvider()
-        out = _run(
+        out_partial = _run(
             route_cuisines(
                 _state(
-                    "想吃辣的",
+                    "想吃辣",
                     preferences=_prefs(allergies=["peanut", "fried_food"]),
                 ),
                 provider=provider,
             )
         )
-        # spicy returns [sichuan, hunan]; peanut removes sichuan, hunan
-        # is not in conflict table, so out is ["hunan"] — NOT empty.
-        # Force the ALL_CUISINES_FILTERED path with a narrower test:
+        assert "sichuan" not in out_partial["selected_cuisines"]
+        assert "hunan" in out_partial["selected_cuisines"]
+
         provider.calls.clear()
         out2 = _run(
             route_cuisines(
-                _state("随便",
-                       preferences=_prefs(
-                           cuisine_weights={"sichuan": 1.0, "western_fastfood": 1.0},
-                           allergies=["peanut", "fried_food"],
-                       )),
+                _state(
+                    "随便",
+                    preferences=_prefs(
+                        cuisine_weights={"sichuan": 1.0, "western_fastfood": 1.0},
+                        allergies=["peanut", "fried_food"],
+                    ),
+                ),
                 provider=provider,
                 rng=random.Random(0),
             )
         )
         assert out2["selected_cuisines"] == []
         assert out2["routing_reason"] == "今天没合适的，换个口味吧"
-        assert any(
-            e.get("code") == ALL_CUISINES_FILTERED
-            for e in out2.get("errors", [])
-        )
+        assert any(e.get("code") == ALL_CUISINES_FILTERED for e in out2.get("errors", []))
 
 
 # ---------------------------------------------------------------------------
@@ -453,16 +438,12 @@ class TestAllergyFilter:
 
 class TestEmptyMessageShortCircuit:
     @pytest.mark.parametrize("msg", ["", "   ", "！！！@#￥", "..."])
-    def test_empty_or_garbage_returns_empty_message_without_llm(
-        self, msg: str
-    ) -> None:
+    def test_empty_or_garbage_returns_empty_message_without_llm(self, msg: str) -> None:
         provider = FakeLLMProvider()
         out = _run(route_cuisines(_state(msg), provider=provider))
         assert out["selected_cuisines"] == []
         assert provider.calls == [], f"empty message {msg!r} must not reach LLM"
-        assert any(
-            e.get("code") == EMPTY_MESSAGE for e in out.get("errors", [])
-        ), out
+        assert any(e.get("code") == EMPTY_MESSAGE for e in out.get("errors", [])), out
 
 
 # ---------------------------------------------------------------------------
@@ -496,7 +477,7 @@ class TestRoutingReasonFormat:
             "清淡的",
             "想吃川菜",
             "随便",
-            "想吃清淡的辣菜",
+            "想吃辣的，清淡的",
             "想吃点暖胃的",
             "",
         ],
@@ -544,9 +525,7 @@ class TestRoutingLog:
     def test_rule_layer_elapsed_ms_under_budget(self) -> None:
         provider = FakeLLMProvider()
         out = _run(route_cuisines(_state("想吃辣的"), provider=provider))
-        rule_entries = [
-            e for e in out.get("routing_log", []) if e.get("layer") == "rule"
-        ]
+        rule_entries = [e for e in out.get("routing_log", []) if e.get("layer") == "rule"]
         assert rule_entries, "expected a rule-layer log entry"
         for entry in rule_entries:
             assert entry["elapsed_ms"] < 100, (
@@ -557,7 +536,7 @@ class TestRoutingLog:
         # TypedDict shape check — works under mypy --strict.
         provider = FakeLLMProvider()
         out = _run(route_cuisines(_state("想吃辣的"), provider=provider))
-        entry: RoutingLogEntry = out["routing_log"][0]  # type: ignore[typeddict-item]
+        entry: RoutingLogEntry = out["routing_log"][0]
         assert isinstance(entry["layer"], str)
         assert isinstance(entry["detail"], str)
         assert isinstance(entry["elapsed_ms"], int)

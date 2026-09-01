@@ -4,16 +4,15 @@ Covers F002 §3.3 conflict-table scope (strict "100% conflict" — only the
 3 cuisines where the cuisine is essentially off-limits) and the immutability
 contract on the helper that zeros out weights for the fuzzy routing path.
 """
+
 from __future__ import annotations
 
-import pytest
 from app.agents.routing.allergies import (
     HARD_ALLERGY_CONFLICTS,
     filter_conflicts,
     zero_out_conflicts,
 )
 from app.core.constants import ALLERGY_VALUES, CUISINE_IDS
-
 
 # ---------------------------------------------------------------------------
 # Table integrity
@@ -28,9 +27,7 @@ class TestConflictTable:
     def test_values_subset_of_allergy_values(self) -> None:
         for cuisine, allergies in HARD_ALLERGY_CONFLICTS.items():
             for allergy in allergies:
-                assert allergy in ALLERGY_VALUES, (
-                    f"{cuisine} has unknown allergy {allergy!r}"
-                )
+                assert allergy in ALLERGY_VALUES, f"{cuisine} has unknown allergy {allergy!r}"
 
     def test_table_contains_only_three_cuisines(self) -> None:
         # F002 §3.3 — strict "100% conflict" scope, deliberately conservative.
