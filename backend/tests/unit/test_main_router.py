@@ -232,8 +232,38 @@ class TestLLMFallback:
             )
         )
         out = _run(route_cuisines(_state("想吃点暖胃的"), provider=provider))
+        assert provider.calls, "LLM layer must be reached to exercise the drop"
         assert "atlantis_cuisine" not in out["selected_cuisines"]
         assert "suzhou" in out["selected_cuisines"]
+
+    def test_no_cuisine_matched_path_clips_reason(self) -> None:
+        # Review feedback regression: NO_CUISINE_MATCHED fallback must also
+        # pass through `_clip_reason` — spec §2 invariants hold on every path,
+        # not only the success paths.
+        provider = FakeLLMProvider(response=_llm_response("definitely not json"))
+        # Force top-1 to a long-tail name; ensure the dynamic reason does
+        # not silently exceed 30 codepoints.
+        prefs = _prefs(
+            cuisine_weights={
+                "sichuan": 1.0,
+                "cantonese": 0.0,
+                "hunan": 0.0,
+                "japanese": 0.0,
+                "western": 0.0,
+            }
+        )
+        out = _run(
+            route_cuisines(
+                _state("想吃点暖胃的", preferences=prefs),
+                provider=provider,
+            )
+        )
+        assert out["selected_cuisines"] == ["sichuan"]
+        assert len(out["routing_reason"]) <= 30, (
+            f"NO_CUISINE_MATCHED path: routing_reason too long "
+            f"({len(out['routing_reason'])} codepoints): {out['routing_reason']!r}"
+        )
+        assert any(e.get("code") == NO_CUISINE_MATCHED for e in out.get("errors", []))
 
     def test_bad_json_degrades_with_top1_fallback(self) -> None:
         provider = FakeLLMProvider(response=_llm_response("not json at all"))

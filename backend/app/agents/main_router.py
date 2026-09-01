@@ -35,6 +35,7 @@ from app.agents.routing.prompt import (
 from app.agents.routing.rules import (
     CONTRADICTORY_TAGS,
     EXPLICIT_RULES,
+    MAX_REASON_CODEPOINTS,
     MODIFIER_RULES,
     Rule,
     is_ambient_message,
@@ -70,7 +71,27 @@ ALL_FILTERED_USER_COPY: str = "今天没合适的，换个口味吧"
 
 # 「乱码 / 空消息」判定：strip 后不含任何 CJK / 字母 / 数字字符。
 # 用 Unicode property 比 `\w` 更精确：`\w` 不覆盖 CJK Unified Ideographs。
-_MEANINGFUL_CHAR_RE = re.compile(r"[一-鿿぀-ゟ゠-ヿa-zA-Z0-9]")
+# 范围用 \uXXXX 转义，避免源码文件被工具二次处理时范围端点漂移。
+_MEANINGFUL_CHAR_RE = re.compile(r"[一-鿿぀-ゟ゠-ヿA-Za-z0-9]")
+
+# ambient / fallback 路径的 cuisine_id → 短中文名（≤4 字）。
+# 复用 prompt 模块同源数据，保持显示名一致。
+_CUISINE_SHORT_NAMES: dict[str, str] = {
+    "sichuan": "川菜",
+    "cantonese": "粤菜",
+    "shandong": "鲁菜",
+    "suzhou": "苏菜",
+    "zhejiang": "浙菜",
+    "fujian": "闽菜",
+    "hunan": "湘菜",
+    "anhui": "徽菜",
+    "japanese": "日料",
+    "western": "西餐",
+    "western_fastfood": "西式快餐",
+    "chinese_fastfood": "中式快餐",
+    "snacks": "小吃",
+    "dessert_drinks": "甜品饮品",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -120,10 +141,8 @@ async def route_cuisines(
 
     if matched:
         explicit_tags = [r.tag for r in matched if r in EXPLICIT_RULES]
-        non_ambiguous_modifiers = [
-            r for r in matched if r in MODIFIER_RULES and r.tag != "ambiguous"
-        ]
-        contradictory = {r.tag for r in non_ambiguous_modifiers if r.tag in CONTRADICTORY_TAGS}
+        modifier_tags = {r.tag for r in matched if r in MODIFIER_RULES}
+        contradictory = modifier_tags & CONTRADICTORY_TAGS
         # 互斥标签 + 无显式点名 → 降级 LLM（spec §3.3「灰色地带」）
         escalate = len(contradictory) >= 2 and not explicit_tags
         log.append(
@@ -226,8 +245,6 @@ def _merge_rule_cuisines(matched: list[Rule]) -> list[str]:
     # 先显式（matched 列表里 EXPLICIT 在前），再修饰；同 tag 内 cuisines
     # 顺序按规则表定义。
     for rule in matched:
-        if rule.tag == "ambiguous":
-            continue
         for cuisine in rule.cuisines:
             if cuisine in seen:
                 continue
@@ -259,23 +276,18 @@ def _build_rule_reason(matched: list[Rule]) -> str:
 
 
 def _build_ambient_reason(weights: dict[str, float], n: int) -> str:
-    """ambient 路径的 reason：从权重中按降序列前 2 个候选菜系名。"""
+    """ambient 路径的 reason：从权重 top-2 候选菜系名拼出。
+
+    权重全 0 时退到「帮你挑了 n 家不一样的」，文案走 `_clip_reason`。
+    """
     sorted_items = sorted(
         ((k, v) for k, v in weights.items() if v > 0),
         key=lambda kv: (-kv[1], CUISINE_IDS.index(kv[0])),
     )[:2]
     if not sorted_items:
-        return "帮你挑了几个不一样的"
-    return "帮你挑了几个不一样的"
-
-
-def _apply_allergy_filter_and_zero(
-    cuisines: list[str], preferences: UserPreferencesDict
-) -> list[str]:
-    """ambient 后再过滤一层——zero_out_conflicts 之后 sample_by_weights 仍可能
-    抽出 0 权重候选（理论上不会，但保险起见再 filter 一次）。
-    """
-    return _apply_allergy_filter(cuisines, preferences)
+        return f"帮你挑了 {n} 家不一样的"
+    names = " + ".join(_CUISINE_SHORT_NAMES.get(k, k) for k, _ in sorted_items)
+    return f"帮你挑了 {names}"
 
 
 def _now_ms() -> int:
@@ -334,13 +346,18 @@ def _finalize_all_filtered(log: list[RoutingLogEntry]) -> RouterOutput:
 def _finalize_no_match(
     preferences: UserPreferencesDict, log: list[RoutingLogEntry]
 ) -> RouterOutput:
-    """NO_CUISINE_MATCHED 路径：取 cuisine_weights top-1 作为兜底。"""
+    """NO_CUISINE_MATCHED 路径：取 cuisine_weights top-1 作为兜底。
+
+    强制走 `_clip_reason` —— spec §2 写明「routing_reason ≤30 字」是全路径
+    不变量；任何动态拼接都要经过裁剪，防止未来新增超长 cuisine_id 时静默越界。
+    """
     weights = preferences.get("cuisine_weights") or {}
     top = _top1_weighted(weights)
     log.append(_log("fallback", f"no match → fallback top-1={top}", 0))
+    reason = _clip_reason(f"今天为你挑了 {top}")
     out: RouterOutput = {
         "selected_cuisines": [top],
-        "routing_reason": f"今天为你挑了 {top}",
+        "routing_reason": reason,
         "routing_log": log,
         "errors": [
             {
@@ -358,18 +375,36 @@ def _finalize_no_match(
 
 
 def _top1_weighted(weights: dict[str, float]) -> str:
-    """取 cuisine_weights top-1，ties 按 CUISINE_IDS 顺序破平（spec §3.3 兜底语义）。"""
+    """取 cuisine_weights top-1，ties 按 CUISINE_IDS 顺序破平（spec §3.3 兜底语义）。
+
+    未知 cuisine_id 直接按权重参与排序、不抛 `ValueError`——F001 schema 验证是
+    生产路径唯一来源，未知 key 出现在这里是上游 bug，不应让 router 崩溃。
+    """
     if not weights:
         return CUISINE_IDS[0]
-    best_key = max(
+    return max(
         weights,
-        key=lambda k: (float(weights.get(k) or 0.0), -CUISINE_IDS.index(k)),
+        key=lambda k: (
+            float(weights.get(k) or 0.0),
+            -_cuisine_index_or_inf(k),
+        ),
     )
-    return best_key
 
 
-def _clip_reason(reason: str, limit: int = 30) -> str:
-    """≤30 码位；超过则保留前 29 码位 + …。"""
+def _cuisine_index_or_inf(cuisine_id: str) -> float:
+    """未知 cuisine_id 返回 +∞，确保它在 ties 时排在已知菜系之后。"""
+    try:
+        return float(CUISINE_IDS.index(cuisine_id))
+    except ValueError:
+        return float("inf")
+
+
+def _clip_reason(reason: str, limit: int = MAX_REASON_CODEPOINTS) -> str:
+    """≤limit 码位；超过则保留前 limit-1 码位 + …。
+
+    `limit` 默认绑 spec 常量 `MAX_REASON_CODEPOINTS`（来自 `routing/rules.py`），
+    禁止在任何路径上 magic-number 覆盖。
+    """
     if len(reason) <= limit:
         return reason
     return reason[: limit - 1] + "…"

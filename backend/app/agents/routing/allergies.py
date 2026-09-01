@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from app.core.constants import ALLERGY_VALUES, CUISINE_IDS
 
 # F002 §3.3 锁定 3 个菜系 + 对应过敏原：
@@ -15,11 +17,17 @@ from app.core.constants import ALLERGY_VALUES, CUISINE_IDS
 #
 # 测试在 tests/unit/test_routing_allergies.py 锁死：
 #   keys ⊆ CUISINE_IDS, values ⊆ ALLERGY_VALUES, 仅有这 3 个菜系。
-HARD_ALLERGY_CONFLICTS: dict[str, frozenset[str]] = {
+#
+# `MappingProxyType` 包裹让外部无法 mutate 这个映射（review feedback：
+# 之前 dict 可变，新增菜系时被运行时插入会绕过 F001 schema 校验）。
+_HARD_ALLERGY_CONFLICTS_RAW: dict[str, frozenset[str]] = {
     "fujian": frozenset({"shellfish", "fish"}),
     "western_fastfood": frozenset({"fried_food"}),
     "sichuan": frozenset({"peanut"}),
 }
+HARD_ALLERGY_CONFLICTS: MappingProxyType[str, frozenset[str]] = MappingProxyType(
+    _HARD_ALLERGY_CONFLICTS_RAW
+)
 
 # 编译期 sanity：发现漂移直接 fail-fast。
 for _cuisine, _allergies in HARD_ALLERGY_CONFLICTS.items():
