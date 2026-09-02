@@ -181,7 +181,7 @@ async def route_cuisines(
             return _finalize_all_filtered(log)
         return _finalize(
             cuisines=sampled,
-            reason=_build_ambient_reason(weights, n),
+            reason=_build_ambient_reason(sampled, n),
             preferences=preferences,
             log=log,
         )
@@ -275,19 +275,21 @@ def _build_rule_reason(matched: list[Rule]) -> str:
     return matched[0].reason
 
 
-def _build_ambient_reason(weights: dict[str, float], n: int) -> str:
-    """ambient 路径的 reason：从权重 top-2 候选菜系名拼出。
+def _build_ambient_reason(sampled: list[str], n: int) -> str:
+    """ambient 路径的 reason：从实际抽到的菜系名拼出。
 
-    权重全 0 时退到「帮你挑了 n 家不一样的」，文案走 `_clip_reason`。
+    用 sampled 而非 weights 排序——reason 必须与 `selected_cuisines` 实际
+    返回一致（用户看到 "川菜 + 粤菜" 但拿到 western_fastfood + fujian 会
+    困惑）。截断到 2 个名 +「等」字样，超长 → 走 `_clip_reason`。
+
+    全 0 权重 / sampled 为空时退到「帮你挑了 n 家不一样的」。
     """
-    sorted_items = sorted(
-        ((k, v) for k, v in weights.items() if v > 0),
-        key=lambda kv: (-kv[1], CUISINE_IDS.index(kv[0])),
-    )[:2]
-    if not sorted_items:
+    if not sampled:
         return f"帮你挑了 {n} 家不一样的"
-    names = " + ".join(_CUISINE_SHORT_NAMES.get(k, k) for k, _ in sorted_items)
-    return f"帮你挑了 {names}"
+    head_names = [_CUISINE_SHORT_NAMES.get(c, c) for c in sampled[:2]]
+    if len(sampled) > 2:
+        return f"帮你挑了 {' + '.join(head_names)} 等"
+    return f"帮你挑了 {' + '.join(head_names)}"
 
 
 def _now_ms() -> int:

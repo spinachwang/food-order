@@ -371,6 +371,47 @@ class TestAmbientSampling:
         # (n ∈ {2,3}, so sample size at least 2 each time).
         assert wins / 500 >= 0.70, wins / 500
 
+    def test_ambient_reason_reflects_actual_sampled_cuisines(self) -> None:
+        """UX 不变量：routing_reason 必须与 selected_cuisines 一致。
+
+        Regression：早期版本用 weights top-2 拼 reason，中性权重下永远显示
+        `川菜 + 粤菜`，与实际抽样结果脱钩，用户困惑。修后改用 sampled 菜系。
+        """
+        provider = FakeLLMProvider()
+        out = _run(
+            route_cuisines(
+                _state("随便", preferences=_prefs()),
+                provider=provider,
+                rng=random.Random(0),
+            )
+        )
+        # reason 展示前 2 个 sampled 菜系的短名（多个时尾部带「等」字）。
+        # 这里只断言：reason 不再是「川菜 + 粤菜」字面——因为 seed=0 的中性
+        # 权重下前 2 名 sampled 不一定是川 + 粤。reason 与 sampled 必须有
+        # 至少一项重叠（≤30 字截断可能丢尾部，所以不强求全覆盖）。
+        short_names = {
+            "sichuan": "川菜",
+            "cantonese": "粤菜",
+            "shandong": "鲁菜",
+            "suzhou": "苏菜",
+            "zhejiang": "浙菜",
+            "fujian": "闽菜",
+            "hunan": "湘菜",
+            "anhui": "徽菜",
+            "japanese": "日料",
+            "western": "西餐",
+            "western_fastfood": "西式快餐",
+            "chinese_fastfood": "中式快餐",
+            "snacks": "小吃",
+            "dessert_drinks": "甜品饮品",
+        }
+        sampled_short = [short_names.get(c, c) for c in out["selected_cuisines"]]
+        # reason 必须包含至少一个 sampled 短名
+        reason = out["routing_reason"]
+        assert any(name in reason for name in sampled_short), (
+            f"reason {reason!r} 与 sampled {sampled_short} 无任何重叠"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Allergy filter
