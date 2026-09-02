@@ -50,12 +50,12 @@ _BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
-from app.agents.llm.base import LLMProvider  # noqa: E402
-from app.agents.llm.factory import get_llm_provider  # noqa: E402
-from app.agents.llm.testing import FakeLLMProvider  # noqa: E402
-from app.agents.main_router import route_cuisines  # noqa: E402
-from app.agents.state import AgentState, UserPreferencesDict  # noqa: E402
-from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT  # noqa: E402
+from app.agents.llm.base import LLMProvider
+from app.agents.llm.factory import get_llm_provider
+from app.agents.llm.testing import FakeLLMProvider
+from app.agents.main_router import route_cuisines
+from app.agents.state import AgentState, UserPreferencesDict
+from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
 
 
 def _parse_optional_json(raw: str | None, default: object, label: str) -> object:
@@ -75,7 +75,9 @@ def _build_prefs(
 ) -> UserPreferencesDict:
     """CLI args → `UserPreferencesDict`；没传就走中性默认。"""
     weights = _parse_optional_json(
-        cuisine_weights_raw, dict.fromkeys(CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT), "cuisine-weights"
+        cuisine_weights_raw,
+        dict.fromkeys(CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT),
+        "cuisine-weights",
     )
     allergies = _parse_optional_json(allergies_raw, [], "allergies")
     if not isinstance(weights, dict):
@@ -121,6 +123,7 @@ async def _run(
     message: str,
     prefs: UserPreferencesDict,
     provider: LLMProvider,
+    rng: random.Random,
 ) -> dict[str, object]:
     """同步桥 async router 调用 → 输出 dict。
 
@@ -138,7 +141,7 @@ async def _run(
         "user_message": message,
         "user_preferences": prefs,
     }
-    out = await route_cuisines(state, provider=provider, rng=random.Random(0))
+    out = await route_cuisines(state, provider=provider, rng=rng)
     routing_log = out.get("routing_log", []) or []
     return {
         "user_id": prefs["user_id"],
@@ -150,6 +153,16 @@ async def _run(
         "llm_called": any(entry.get("layer") == "llm" for entry in routing_log),
         "provider_model": getattr(provider, "model", None),
     }
+
+
+def _build_rng(seed_arg: str) -> random.Random:
+    """`--seed` → RNG：默认 `0`（可复现）；填 `random` 用 fresh 随机（生产语义）。"""
+    if seed_arg == "random":
+        return random.Random()
+    try:
+        return random.Random(int(seed_arg))
+    except ValueError as e:
+        raise SystemExit(f"--seed 必须是整数或 'random'：{e}") from e
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -173,13 +186,22 @@ def main(argv: list[str] | None = None) -> int:
             "provider（.env 里 MINIMAX_API_KEY 等）"
         ),
     )
+    parser.add_argument(
+        "--seed",
+        default="0",
+        help=(
+            "ambient 加权抽样的 RNG 种子。默认 0（可复现，CI 友好）；填 'random' "
+            "用 fresh 随机——生产里 router 就是这种行为，不传 seed"
+        ),
+    )
     args = parser.parse_args(argv)
 
     prefs = _build_prefs(args.cuisine_weights, args.allergies, seed=0)
     provider, mode = _make_provider(args.llm_response)
+    rng = _build_rng(args.seed)
 
     try:
-        result = asyncio.run(_run(args.message, prefs, provider))
+        result = asyncio.run(_run(args.message, prefs, provider, rng))
     finally:
         # 真实 provider 持有 httpx.AsyncClient，结束时显式关闭避免资源泄漏。
         if hasattr(provider, "aclose"):
