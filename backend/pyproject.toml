@@ -29,6 +29,9 @@ ignore = ["E501"]
 "tests/unit/test_routing_rules.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 "tests/unit/test_routing_allergies.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 "tests/integration/test_main_router_integration.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F002 dev 入口（scripts/dev_route.py）的 docstring / CLI help 含全角标点，与
+# 产品文案保持一致。
+"../scripts/dev_route.py" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.format]
 quote-style = "double"
