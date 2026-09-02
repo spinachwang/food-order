@@ -126,6 +126,12 @@ async def _run(
 
     真实 LLM 抛出的异常（auth / network / parse）不在这里吞——开发期要看
     完整错误。FakeLLM 不会抛。
+
+    `llm_called` 从 `routing_log` 推导：router 写 log 时只会在「真正触达
+    LLM 层」时追加 `layer == "llm"` 的 entry（不论后续成功 / 超时 / 解析
+    失败都会写），所以这个信号与 provider 类型无关——Fake 与 Real 一致。
+    早期版本用 `provider.calls` 判断，但 MiniMaxProvider（真）没有 `calls`
+    属性，会永远返回 False；那是 bug。
     """
     state: AgentState = {
         "user_id": prefs["user_id"],
@@ -133,14 +139,15 @@ async def _run(
         "user_preferences": prefs,
     }
     out = await route_cuisines(state, provider=provider, rng=random.Random(0))
+    routing_log = out.get("routing_log", []) or []
     return {
         "user_id": prefs["user_id"],
         "message": message,
         "selected_cuisines": out.get("selected_cuisines"),
         "routing_reason": out.get("routing_reason"),
-        "routing_log": out.get("routing_log"),
+        "routing_log": routing_log,
         "errors": out.get("errors"),
-        "llm_called": getattr(provider, "calls", None) is not None and bool(provider.calls),
+        "llm_called": any(entry.get("layer") == "llm" for entry in routing_log),
         "provider_model": getattr(provider, "model", None),
     }
 
