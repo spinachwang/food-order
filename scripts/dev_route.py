@@ -188,10 +188,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--seed",
-        default="0",
+        default="random",
         help=(
-            "ambient 加权抽样的 RNG 种子。默认 0（可复现，CI 友好）；填 'random' "
-            "用 fresh 随机——生产里 router 就是这种行为，不传 seed"
+            "ambient 加权抽样的 RNG 种子。默认 'random'（fresh 随机，与生产行为一致——"
+            "同用户连说两次 '随便' 会拿到不同组合）。传整数（例 0）固定 seed 用于 "
+            "调试特定组合 / CI 复现"
         ),
     )
     args = parser.parse_args(argv)
