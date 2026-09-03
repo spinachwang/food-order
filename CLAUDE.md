@@ -132,6 +132,16 @@ food-order/
 - 任何"魔法数字"提取为命名常量。
 - 所有密钥从 `.env` 读取，**禁止**硬编码；启动时校验必需 env 存在。
 
+### LLM 提示词资产（first-class）
+
+LLM 提示词不是普通字符串，而是与代码并列的 first-class 资产，必须独立维护、不与业务逻辑混在一起。
+
+- **位置**：统一放在 `backend/app/agents/prompts/`
+- **承载形式**：单独 `.py` 模板函数 + 模板常量；菜系片段优先用独立模块 / 字典 / 文本文件
+- **禁止**：在 `services/` / `routers/` / Node 函数体内联 `system_content = "..."` 这类字符串
+- **调用**：业务逻辑通过 `from app.agents.prompts.<x> import render_<x>_prompt` 之类的稳定 API 调用；模板内部变更不破坏调用方
+- **理由与详细约束**：见 [spec/adr/0003-prompts-as-first-class-assets.md](spec/adr/0003-prompts-as-first-class-assets.md)
+
 ---
 
 ## 开发方法论

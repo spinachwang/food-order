@@ -27,7 +27,9 @@ conda create -n food-order python=3.11 -y
 conda run -n food-order pip install -r backend/requirements.txt
 
 # 启动开发服务器（自动 reload）
-conda run -n food-order uvicorn app.main:app --reload --port 8000
+cd d:/project/food-order/backend
+conda activate food-order
+uvicorn app.main:app --reload --port 8000
 ```
 
 打开 http://localhost:8000/healthz 应返回 `{"status":"ok"}`，访问 http://localhost:8000/docs 看 Swagger UI。
