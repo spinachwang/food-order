@@ -1,6 +1,6 @@
 # F003 — 菜系专家通用契约
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 1 — GREEN）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：F001（用户偏好）、F030（餐厅搜索）
 > **被依赖**：F010–F024（14 个菜系专家）、F004（整体工作流）
@@ -13,12 +13,12 @@
 
 ## 2. 验收清单
 
-- [ ] 每个菜系 Node 继承 `BaseCuisineExpert` 抽象类
-- [ ] 每个菜系注册到 `CUISINE_REGISTRY`（`cuisine_id` → Node 实例）
-- [ ] 每个菜系 Node 的输入 / 输出 schema 与本 spec §3 完全一致
-- [ ] 每个菜系 prompt 模板符合本 spec §4 模板结构
-- [ ] 每个菜系 spec 文件都引用本文档，不重复定义契约
-- [ ] 任意菜系 Node 可被主 Agent router 单独或并行调用
+- [x] 每个菜系 Node 继承 `BaseCuisineExpert` 抽象类
+- [x] 每个菜系注册到 `CUISINE_REGISTRY`（`cuisine_id` → Node 实例）
+- [x] 每个菜系 Node 的输入 / 输出 schema 与本 spec §3 完全一致
+- [x] 每个菜系 prompt 模板符合本 spec §4 模板结构
+- [x] 每个菜系 spec 文件都引用本文档，不重复定义契约
+- [x] 任意菜系 Node 可被主 Agent router 单独或并行调用
 
 ## 3. 输入 / 输出（Agent 视角）
 
@@ -142,13 +142,13 @@ CUISINE_REGISTRY = {
 
 ### 单元测试
 
-- [ ] `test_base_contract.py`：所有 14 菜系 Node 继承 `BaseCuisineExpert`，注册到 `CUISINE_REGISTRY`
-- [ ] `test_base_contract.py`：每个 Node 的 `parse_output` 能正确解析合法 JSON
-- [ ] `test_base_contract.py`：每个 Node 在 LLM 返回非法 JSON 时按 §3.3 降级
+- [x] `test_base_contract.py`：所有 14 菜系 Node 继承 `BaseCuisineExpert`，注册到 `CUISINE_REGISTRY`
+- [x] `test_base_contract.py`：每个 Node 的 `parse_output` 能正确解析合法 JSON
+- [x] `test_base_contract.py`：每个 Node 在 LLM 返回非法 JSON 时按 §3.3 降级
 
 ### 集成测试
 
-- [ ] `test_cuisine_parallel.py`：主 Agent 可并行触发 ≥3 个菜系 Node，且结果独立聚合到 `AgentState.cuisine_results`
+- [x] `test_cuisine_parallel.py`：主 Agent 可并行触发 ≥3 个菜系 Node，且结果独立聚合到 `AgentState.cuisine_results`
 
 ### 端到端（Playwright）
 
