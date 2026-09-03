@@ -7,6 +7,7 @@ matches `CUISINE_IDS` in `app.core.constants` so iteration is deterministic
 from __future__ import annotations
 
 from app.agents.cuisines.base import BaseCuisineExpert
+from app.agents.cuisines.sichuan import SichuanExpert
 from app.agents.cuisines.stubs.anhui import AnhuiExpert
 from app.agents.cuisines.stubs.cantonese import CantoneseExpert
 from app.agents.cuisines.stubs.chinese_fastfood import ChineseFastfoodExpert
@@ -15,7 +16,6 @@ from app.agents.cuisines.stubs.fujian import FujianExpert
 from app.agents.cuisines.stubs.hunan import HunanExpert
 from app.agents.cuisines.stubs.japanese import JapaneseExpert
 from app.agents.cuisines.stubs.shandong import ShandongExpert
-from app.agents.cuisines.stubs.sichuan import SichuanExpert
 from app.agents.cuisines.stubs.snacks import SnacksExpert
 from app.agents.cuisines.stubs.suzhou import SuzhouExpert
 from app.agents.cuisines.stubs.western import WesternExpert

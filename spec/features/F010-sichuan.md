@@ -1,6 +1,6 @@
 # F010 — 川菜专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Agent MVP — F010 川菜专家实现 + 测试）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003 菜系专家通用契约](F003-cuisine-expert-contract.md)、[F030 餐厅搜索](F030-amap-restaurant-search.md)
 > **被依赖**：[F004 整体工作流](F004-langgraph-workflow.md)、[F040 总结 Agent](F040-summary-agent.md)
@@ -11,11 +11,11 @@
 
 ## 2. 验收清单
 
-- [ ] 继承 `BaseCuisineExpert`，`cuisine_id="sichuan"`
-- [ ] 输出关键词覆盖：菜系词 + 代表菜名 + 风味词
-- [ ] 提示词中显式标注"川菜常含花生油"
-- [ ] 邻近菜系互斥：与湘菜共享辣味，但川偏"麻"；与徽菜共享重油
-- [ ] 单元 / 集成测试覆盖
+- [x] 继承 `BaseCuisineExpert`，`cuisine_id="sichuan"`
+- [x] 输出关键词覆盖：菜系词 + 代表菜名 + 风味词
+- [x] 提示词中显式标注"川菜常含花生油"
+- [x] 邻近菜系互斥：与湘菜共享辣味，但川偏"麻"；与徽菜共享重油
+- [x] 单元 / 集成测试覆盖
 
 ## 3. 代表性菜品（用于关键词生成）
 
@@ -48,7 +48,7 @@
 
 ## 6. 测试计划
 
-- [ ] `test_sichuan_expert.py`：mock LLM 返回合法 JSON → `parse_output` 字段正确
-- [ ] `test_sichuan_expert.py`：关键词必含"川菜"+ 至少 2 个代表菜
-- [ ] `test_sichuan_expert.py`：花生过敏用户消息 → `matched_allergies` 含 `"peanut"`
-- [ ] 集成：与其他菜系并行触发，输出独立聚合
+- [x] `test_sichuan_expert.py`：mock LLM 返回合法 JSON → `parse_output` 字段正确
+- [x] `test_sichuan_expert.py`：关键词必含"川菜"+ 至少 2 个代表菜
+- [x] `test_sichuan_expert.py`：花生过敏用户消息 → `matched_allergies` 含 `"peanut"`
+- [x] 集成：与其他菜系并行触发，输出独立聚合（由 F003 `test_cuisine_parallel.py` 覆盖）

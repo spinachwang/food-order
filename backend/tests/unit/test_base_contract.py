@@ -18,7 +18,7 @@ from app.agents.cuisines import (
 )
 from app.agents.cuisines.prompts.base import render_base_prompt
 from app.agents.cuisines.registry import CUISINE_REGISTRY as REG
-from app.agents.cuisines.stubs.sichuan import SichuanExpert
+from app.agents.cuisines.sichuan import SichuanExpert
 from app.agents.state import CuisineExpertInput, UserPreferencesDict
 from app.core.constants import CUISINE_IDS
 
@@ -51,10 +51,10 @@ def _input() -> CuisineExpertInput:
 
 
 class TestBaseContract:
-    def test_sichuan_stub_subclasses_abc(self) -> None:
+    def test_sichuan_expert_subclasses_abc(self) -> None:
         assert issubclass(SichuanExpert, BaseCuisineExpert)
 
-    def test_sichuan_stub_required_attrs(self) -> None:
+    def test_sichuan_expert_required_attrs(self) -> None:
         expert = SichuanExpert()
         assert expert.cuisine_id == "sichuan"
         assert expert.display_name == "川菜"
