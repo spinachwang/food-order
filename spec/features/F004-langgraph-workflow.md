@@ -1,7 +1,7 @@
 # F004 — LangGraph 整体工作流
 
-> **状态**：[ ] 未开始
-> **所属里程碑**：M1 Agent MVP
+> **状态**：[x] 已完成（LangGraph 0.2.x 图骨架；F030/F031/F040 stub 节点占位）
+> **所属里程碑**：M1 Agent MVP — 本骨架已经让 happy path 端到端跑通；后续 spec 上线时只需替换对应 stub 节点函数体。
 > **依赖**：[F001](F001-user-preferences.md)、[F002](F002-main-agent-router.md)、[F003](F003-cuisine-expert-contract.md)、[F010–F024](.)、[F030](F030-amap-restaurant-search.md)、[F031](F031-amap-weather.md)、[F040](F040-summary-agent.md)
 > **被依赖**：无（顶层收口）
 
@@ -11,13 +11,13 @@
 
 ## 2. 验收清单
 
-- [ ] 单一函数入口：`build_graph() -> CompiledStateGraph`
-- [ ] State 类型统一：见 §3.1
-- [ ] Node 列表：见 §3.2
-- [ ] Edge 条件：见 §3.3
-- [ ] 流式事件：使用 LangGraph 的 `astream_events` 把中间节点结果转为 SSE 事件
-- [ ] checkpoint：使用 `MemorySaver`（M1），后续可换 Postgres
-- [ ] 端到端 happy path 单测 < 2 秒
+- [x] 单一函数入口：`build_graph() -> CompiledStateGraph`
+- [x] State 类型统一：见 §3.1
+- [x] Node 列表：见 §3.2
+- [x] Edge 条件：见 §3.3
+- [x] 流式事件：使用 LangGraph 的 `astream_events` 把中间节点结果转为 SSE 事件
+- [x] checkpoint：使用 `MemorySaver`（M1），后续可换 Postgres
+- [x] 端到端 happy path 单测 < 2 秒（实测 ~0.6 秒）
 
 ## 3. 整体设计
 

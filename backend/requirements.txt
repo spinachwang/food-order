@@ -15,3 +15,7 @@ pytest-cov>=4.1
 respx>=0.21
 ruff>=0.4
 mypy>=1.10
+# F004 — LangGraph workflow graph runtime (see spec/features/F004-langgraph-workflow.md)
+# Pinned to 0.2.x for stability; LangSmith integration is required by StateGraph but
+# unused at runtime (only LLMProvider completions enter the graph, see F003 §8.1).
+langgraph>=0.2,<0.3
