@@ -1,6 +1,6 @@
 # F012 — 鲁菜专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 1 — GREEN；补 F012 §4 黄焖鸡/京菜边界澄清落到 prompt 片段，新增 `tests/unit/test_shandong_expert.py` 覆盖 F012 §2、§6）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003](F003-cuisine-expert-contract.md)、[F030](F030-amap-restaurant-search.md)
 
@@ -10,9 +10,9 @@
 
 ## 2. 验收清单
 
-- [ ] `cuisine_id="shandong"`
-- [ ] 关键词覆盖：鲁菜 / 山东 / 咸鲜 / 葱烧
-- [ ] 单测覆盖
+- [x] `cuisine_id="shandong"`
+- [x] 关键词覆盖：鲁菜 / 山东 / 咸鲜 / 葱烧
+- [x] 单测覆盖（`tests/unit/test_shandong_expert.py`）
 
 ## 3. 代表性菜品
 
@@ -41,5 +41,5 @@
 
 ## 6. 测试计划
 
-- [ ] `test_shandong_expert.py`：用户输入"咸鲜" → 关键词含"鲁菜"
-- [ ] `test_shandong_expert.py`：用户输入"山东菜" → 不把"黄焖鸡"作为首选关键词（避免落入中式快餐）
+- [x] `test_shandong_expert.py`：用户输入"咸鲜" → 关键词含"鲁菜"
+- [x] `test_shandong_expert.py`：用户输入"山东菜" → 不把"黄焖鸡"作为首选关键词（避免落入中式快餐）
