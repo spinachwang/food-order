@@ -106,6 +106,41 @@ class LLMResponseError(LLMError):
     http_status = 502
 
 
+# ----- F030 / F031 — AMAP MCP transport errors -----
+
+
+class AmapError(DomainError):
+    """Base for AMAP MCP failures. Mapped to HTTP 502 by default (upstream issue)."""
+
+    code = "AMAP_ERROR"
+    http_status = 502
+
+
+class AmapInvalidKeyError(AmapError):
+    """AMAP_API_KEY 无效或未配置。
+
+    F030 §5 / F031 §5: 启动时 fail-fast 应当拦截；运行时触发则说明
+    配置漂移，需要运维介入。
+    """
+
+    code = "AMAP_INVALID_KEY"
+    http_status = 502
+
+
+class AmapQuotaExceededError(AmapError):
+    """AMAP 配额耗尽（HTTP 429 或 infocode=10044）。"""
+
+    code = "AMAP_QUOTA_EXCEEDED"
+    http_status = 429
+
+
+class AmapNetworkError(AmapError):
+    """AMAP 网络超时或连接错误，工具层已重试 1 次仍失败。"""
+
+    code = "AMAP_NETWORK_ERROR"
+    http_status = 504
+
+
 # ----- Exception handlers -----
 
 

@@ -28,6 +28,9 @@ ignore = ["E501"]
 "tests/unit/test_main_router.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 "tests/unit/test_routing_rules.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 "tests/unit/test_routing_allergies.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F030 高德 MCP 工具模块 — 中文注释 / docstring 含全角标点，与产品文案保持一致。
+"app/mcp/**/*.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/unit/test_amap_restaurant.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 # F012 鲁菜专家测试的 docstring / 注释大量引用 F012 spec 全角中文标点。
 "tests/unit/test_shandong_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 # F013 苏菜专家测试的 docstring / 注释大量引用 F013 spec 全角中文标点。

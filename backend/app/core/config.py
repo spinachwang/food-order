@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     # Set False in production to never persist raw prompts (privacy / cost).
     log_prompt_debug: bool = True
 
+    # --- AMAP MCP (F030 餐厅搜索 + F031 天气 — 共用 key) ---
+    # F030 §6: 启动时校验 key 存在；缺失则 fail-fast。
+    amap_api_key: str = ""
+    # 半径上限；超过会被服务端丢弃。这里给客户端做上限校验 + 排序归一化。
+    amap_default_radius_meters: int = 1500
+    # HTTP 客户端超时（秒）。F030 SLA 是 1.5s 总耗时（含解析），这里
+    # 给 HTTP 阶段 1.0s 留 0.5s 给 JSON parse。
+    amap_timeout_seconds: float = 2.0
+    # 网络 / 超时重试次数；0 表示不重试。F030 §5 要求『重试 1 次』，
+    # 但通过 max_retries=1 实现『共尝试 2 次』，与现有 LLM provider 语义一致。
+    amap_max_retries: int = 1
+
     @property
     def database_url(self) -> str:
         """Production / dev database URL with utf8mb4 charset."""
