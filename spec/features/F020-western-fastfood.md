@@ -1,6 +1,6 @@
 # F020 — 西式快餐专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003](F003-cuisine-expert-contract.md)、[F030](F030-amap-restaurant-search.md)
 
