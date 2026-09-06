@@ -42,6 +42,10 @@ ignore = ["E501"]
 "tests/unit/test_japanese_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 # F019 西餐专家测试的 docstring / 注释大量引用 F019 spec 全角中文标点。
 "tests/unit/test_western_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F022 中式快餐专家测试的 docstring / 注释大量引用 F022 spec 全角中文标点。
+"tests/unit/test_chinese_fastfood_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F020 西式快餐专家测试的 docstring / 注释大量引用 F020 spec 全角中文标点。
+"tests/unit/test_western_fastfood_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 "tests/integration/test_main_router_integration.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 # F002 dev 入口（scripts/dev_route.py）的 docstring / CLI help 含全角标点，与
 # 产品文案保持一致。
