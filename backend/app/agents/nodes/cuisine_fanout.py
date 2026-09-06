@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, cast
 
 from app.agents.cuisines import CUISINE_REGISTRY
 from app.agents.state import AgentState, CuisineExpertOutput
+from app.core.request_id import get_request_id
 
 _logger = logging.getLogger(__name__)
 
@@ -28,13 +30,22 @@ _logger = logging.getLogger(__name__)
 async def node_cuisine_fanout(state: AgentState) -> dict[str, object]:
     """Dispatch to each selected cuisine's expert.run() in parallel."""
     selected: list[str] = list(state.get("selected_cuisines") or [])
+    rid = get_request_id() or "-"
+
     if not selected:
         # Router returned empty (e.g. EMPTY_MESSAGE) — nothing to do.
         # The router's own errors[] explains why; we don't duplicate.
+        _logger.info("cuisine_fanout skip rid=%s reason=empty_selected", rid)
         return {"cuisine_results": {}}
 
     # Drop unknown ids defensively (registry is the source of truth).
     targets: list[str] = [cid for cid in selected if cid in CUISINE_REGISTRY]
+    _logger.info(
+        "cuisine_fanout start rid=%s selected=%s targets=%s",
+        rid,
+        selected,
+        targets,
+    )
     if not targets:
         return {
             "cuisine_results": {},
@@ -46,39 +57,72 @@ async def node_cuisine_fanout(state: AgentState) -> dict[str, object]:
             ],
         }
 
-    coros = [CUISINE_REGISTRY[cid].run(state) for cid in targets]
-    results = await asyncio.gather(*coros, return_exceptions=True)
+    started = time.monotonic()
+    results = await asyncio.gather(
+        *[_run_one(rid, cid, state) for cid in targets],
+        return_exceptions=False,
+    )
 
     merged: dict[str, CuisineExpertOutput] = {}
     new_errors: list[dict[str, str]] = []
     for cid, result in zip(targets, results, strict=True):
-        if isinstance(result, Exception):
-            # Spec §3.4: 不中断整体工作流. F003 §3.3 says each expert already
-            # returns a `_fallback_output` on parse failure; this branch is
-            # for *raised* exceptions (NotImplementedError in Phase 1, runtime
-            # issues, transport failures, etc.).
-            _logger.warning(
-                "cuisine %s failed: %s",
-                cid,
-                result,
-                exc_info=result,
-            )
+        if result is None:
+            # Per-cuisine run logged its own error already; nothing to merge.
             new_errors.append(
                 {
                     "code": "CUISINE_NODE_FAILED",
                     "cuisine_id": cid,
-                    "message": f"{type(result).__name__}: {result}",
+                    "message": f"{cid} expert run failed (see logs)",
                 }
             )
             continue
-        # Result is a partial-state dict; pull the cuisine_id-keyed output
-        # if present, else treat raw dict as the output.
         merged[cid] = _coerce_to_output(cid, result)
 
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    _logger.info(
+        "cuisine_fanout done rid=%s elapsed_ms=%d merged=%d errors=%d",
+        rid,
+        elapsed_ms,
+        len(merged),
+        len(new_errors),
+    )
     out: dict[str, Any] = {"cuisine_results": merged}
     if new_errors:
         out["errors"] = new_errors
     return out
+
+
+async def _run_one(
+    rid: str, cuisine_id: str, state: AgentState
+) -> dict[str, object] | None:
+    """Run one expert, with timing + exception capture.
+
+    Returns the expert's result dict on success, or None on exception (the
+    exception itself is already logged + counted via `_logger.warning`).
+    """
+    expert = CUISINE_REGISTRY[cuisine_id]
+    started = time.monotonic()
+    _logger.info("cuisine[%s] start rid=%s", cuisine_id, rid)
+    try:
+        result = await expert.run(state)
+    except BaseException as exc:  # noqa: BLE001 — fanout never propagates
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        _logger.warning(
+            "cuisine[%s] failed rid=%s elapsed_ms=%d exc=%s",
+            cuisine_id,
+            rid,
+            elapsed_ms,
+            type(exc).__name__,
+        )
+        _logger.debug(
+            "cuisine[%s] traceback rid=%s", cuisine_id, rid, exc_info=exc
+        )
+        return None
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    _logger.info(
+        "cuisine[%s] ok rid=%s elapsed_ms=%d", cuisine_id, rid, elapsed_ms
+    )
+    return cast(dict[str, object], result)
 
 
 def _coerce_to_output(

@@ -50,6 +50,18 @@ class Settings(BaseSettings):
     minimax_max_retries: int = 2
     minimax_thinking: str = "disabled"  # one of: disabled | enabled | adaptive
 
+    # --- Logging (M2 observability layer) ---
+    # log_level: root logger level. Module-specific overrides live in
+    # `app/core/logging.py` (e.g. `app.agents.llm` always DEBUG when root
+    # is INFO, so prompts/responses can be inspected without changing root).
+    log_level: str = "INFO"
+    # log_format: "human" (default, color-less stderr with timestamps) or "json"
+    # (single-line JSON per record; useful for log shippers).
+    log_format: str = "human"
+    # log_prompt_debug: gate for full LLM prompt/response bodies in DEBUG logs.
+    # Set False in production to never persist raw prompts (privacy / cost).
+    log_prompt_debug: bool = True
+
     @property
     def database_url(self) -> str:
         """Production / dev database URL with utf8mb4 charset."""

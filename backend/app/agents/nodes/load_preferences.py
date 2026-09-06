@@ -21,6 +21,7 @@ from typing import cast
 
 from app.agents.state import AgentState, UserPreferencesDict
 from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
+from app.core.request_id import get_request_id
 
 _logger = logging.getLogger(__name__)
 
@@ -34,7 +35,10 @@ def node_load_preferences(state: AgentState) -> dict[str, object]:
     """
     user_id = str(state.get("user_id", ""))
     if not user_id:
-        _logger.warning("load_preferences: missing user_id in state")
+        _logger.warning(
+            "load_preferences: missing user_id in state rid=%s",
+            get_request_id() or "-",
+        )
         return {
             "errors": [
                 {"code": "USER_ID_REQUIRED", "message": "user_id 为空，无法加载偏好"}

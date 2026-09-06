@@ -43,6 +43,7 @@ from app.agents.nodes.search_restaurants import node_search_restaurants
 from app.agents.nodes.stream import node_stream_output
 from app.agents.nodes.summarize import node_summarize
 from app.agents.state import AgentState
+from app.agents._observability import logged_node
 
 # Public names callers (api/v1/agent.py, F050 frontend) may rely on.
 __all__ = ["GRAPH_NODE_NAMES", "build_graph"]
@@ -82,14 +83,21 @@ def build_graph(
     """
     graph: StateGraph = StateGraph(AgentState)
 
-    # Nodes — order matches GRAPH_NODE_NAMES.
-    graph.add_node("load_preferences", node_load_preferences)
-    graph.add_node("route_cuisines", node_route_cuisines)
-    graph.add_node("cuisine_fanout", node_cuisine_fanout)
-    graph.add_node("search_restaurants", node_search_restaurants)
-    graph.add_node("fetch_weather", node_fetch_weather)
-    graph.add_node("summarize", node_summarize)
-    graph.add_node("stream_output", node_stream_output)
+    # Nodes — order matches GRAPH_NODE_NAMES. Each callable is wrapped in
+    # `logged_node` so the entire workflow is end-to-end traced with one
+    # INFO enter / INFO exit per node, plus elapsed_ms and state-key diffs.
+    # The wrapper preserves the original signature — LangGraph calls the
+    # wrapped callable exactly like the raw node function.
+    def _w(name: str, fn: object) -> object:
+        return logged_node(name, fn)
+
+    graph.add_node("load_preferences", _w("load_preferences", node_load_preferences))
+    graph.add_node("route_cuisines", _w("route_cuisines", node_route_cuisines))
+    graph.add_node("cuisine_fanout", _w("cuisine_fanout", node_cuisine_fanout))
+    graph.add_node("search_restaurants", _w("search_restaurants", node_search_restaurants))
+    graph.add_node("fetch_weather", _w("fetch_weather", node_fetch_weather))
+    graph.add_node("summarize", _w("summarize", node_summarize))
+    graph.add_node("stream_output", _w("stream_output", node_stream_output))
 
     # Edges (spec §3.3).
     graph.add_edge(START, "load_preferences")

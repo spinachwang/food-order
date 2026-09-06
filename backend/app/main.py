@@ -7,12 +7,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
+from app.core.logging import setup_logging
 from app.core.user_id import UserIdMiddleware
 
 
 def create_app() -> FastAPI:
     """Application factory."""
     settings = get_settings()
+    # Configure stdlib logging before any middleware / router imports so
+    # every log record carries `request_id` from the very first request.
+    setup_logging(level=settings.log_level, fmt=settings.log_format)
+
     app = FastAPI(
         title="food-order API",
         version="0.1.0",

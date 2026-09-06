@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from app.agents.graph import GRAPH_NODE_NAMES, build_graph
 from app.agents.state import AgentState
 from app.core.db import get_db
+from app.core.request_id import new_request_id, set_request_id
 from app.core.user_id import get_current_user_id
 from app.services import preferences as preferences_service
 
@@ -90,14 +91,27 @@ async def post_chat(
     `event: error\\ndata: {"code": "...", "message": "..."}\\n\\n`.
     """
     preferences = preferences_service.load_preferences(session, user_id)
+    # Generate a fresh request_id and bind it to the current async context so
+    # every log record emitted while this request is in flight carries the
+    # same `rid=`. Also stash it on `AgentState` for nodes that prefer to
+    # read from state directly (e.g. when contextvar inheritance is broken).
+    rid = new_request_id()
+    set_request_id(rid)
     initial_state: AgentState = {
         "user_id": user_id,
         "user_message": payload.message,
         "session_id": payload.session_id,
         "location_override": payload.location_override,
         "user_preferences": preferences,
+        "request_id": rid,
         # LangGraph fills the rest from Node returns.
     }
+    _logger.info(
+        "api.v1.agent post_chat enter rid=%s user=%s msg_chars=%d",
+        rid,
+        user_id,
+        len(payload.message),
+    )
 
     thread_id = payload.session_id or user_id
     config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
@@ -116,14 +130,15 @@ async def post_chat(
             ):
                 # Stop emitting once the client disconnects.
                 if await request.is_disconnected():
-                    _logger.info("client disconnected mid-stream user_id=%s", user_id)
+                    _logger.info("client disconnected mid-stream rid=%s user=%s", rid, user_id)
                     return
                 frame = _frame_from_event(event)
                 if frame is not None:
                     yield frame
+            _logger.info("api.v1.agent post_chat done rid=%s user=%s", rid, user_id)
             yield _sse_frame("done", {})
         except Exception as e:
-            _logger.exception("agent chat failed user_id=%s", user_id)
+            _logger.exception("agent chat failed rid=%s user=%s", rid, user_id)
             yield _sse_frame(
                 "error",
                 {

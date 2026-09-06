@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from app.agents._observability import instrument_llm_call
 from app.agents.llm.base import LLMProvider
 from app.agents.llm.types import ChatRequest, ChatResponse
 
@@ -31,6 +32,7 @@ class FakeLLMProvider(LLMProvider):
     def set_responses(self, responses: Iterable[ChatResponse]) -> None:
         self._responses = list(responses)
 
+    @instrument_llm_call
     async def complete(self, request: ChatRequest) -> ChatResponse:
         self.calls.append(request)
         if not self._responses:

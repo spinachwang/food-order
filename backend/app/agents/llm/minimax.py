@@ -22,6 +22,7 @@ from typing import Any, cast
 
 import httpx
 
+from app.agents._observability import instrument_llm_call
 from app.agents.llm.base import LLMProvider
 from app.agents.llm.types import ChatRequest, ChatResponse, ChatResponseUsage
 from app.core.exceptions import (
@@ -60,6 +61,7 @@ class MiniMaxProvider(LLMProvider):
 
     # ----- LLMProvider -----
 
+    @instrument_llm_call
     async def complete(self, request: ChatRequest) -> ChatResponse:
         if not self._api_key:
             raise LLMAuthError(

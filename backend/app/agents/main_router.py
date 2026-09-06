@@ -24,6 +24,7 @@ import random
 import re
 from datetime import UTC, datetime
 
+from app.agents._observability import render_messages, render_response_content
 from app.agents.llm.base import LLMProvider
 from app.agents.llm.factory import get_llm_provider
 from app.agents.routing.allergies import filter_conflicts, zero_out_conflicts
@@ -50,6 +51,7 @@ from app.agents.state import (
 )
 from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
 from app.core.exceptions import LLMError
+from app.core.request_id import get_request_id
 
 _logger = logging.getLogger(__name__)
 
@@ -117,11 +119,12 @@ async def route_cuisines(
     preferences = _resolve_preferences(state)
 
     log: list[RoutingLogEntry] = []
+    rid = get_request_id() or "-"
 
     # ---- 1. 前置校验：空消息 / 乱码 ------------------------------------
     if not _is_meaningful(message):
         log.append(_log("rule", f"empty or garbage message: {message!r}", 0))
-        _logger.info("router[%s] rejected empty/garbage message", user_id)
+        _logger.info("router[%s] rejected empty/garbage message rid=%s", user_id, rid)
         return {
             "selected_cuisines": [],
             "routing_reason": "",
@@ -321,10 +324,11 @@ def _finalize(
         "routing_log": log,
     }
     _logger.info(
-        "router[%s] decided cuisines=%s reason=%r",
+        "router[%s] decided cuisines=%s reason=%r rid=%s",
         preferences.get("user_id"),
         cuisines,
         clipped,
+        get_request_id() or "-",
     )
     return out
 
@@ -369,9 +373,10 @@ def _finalize_no_match(
         ],
     }
     _logger.info(
-        "router[%s] no match → fallback top-1=%s",
+        "router[%s] no match → fallback top-1=%s rid=%s",
         preferences.get("user_id"),
         top,
+        get_request_id() or "-",
     )
     return out
 
@@ -422,6 +427,20 @@ async def _route_via_llm(
     """LLM 兜底层：包在 asyncio.wait_for 里；任何错误都降级到 NO_CUISINE_MATCHED。"""
     provider = injected_provider or get_llm_provider()
     request = build_router_prompt(preferences, message)
+    rid = get_request_id() or "-"
+    user_id = preferences.get("user_id", "?")
+
+    # DEBUG-only: dump full prompt to help diagnose routing decisions.
+    # The provider-level `instrument_llm_call` decorator also logs the same
+    # body; this router-level line appears first in the log so a debugger can
+    # see intent before the transport layer's view.
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug(
+            "router prompt rid=%s user=%s\n%s",
+            rid,
+            user_id,
+            render_messages(request.get("messages") or []),
+        )
 
     llm_started = _now_ms()
     try:
@@ -431,27 +450,50 @@ async def _route_via_llm(
     except TimeoutError:
         llm_elapsed = _now_ms() - llm_started
         log.append(_log("llm", f"timeout after {llm_elapsed}ms", llm_elapsed))
-        _logger.warning("router LLM timeout for user=%s", preferences.get("user_id"))
+        _logger.warning(
+            "router LLM timeout rid=%s user=%s", rid, user_id
+        )
         return _finalize_no_match(preferences, log)
     except LLMError as e:
         llm_elapsed = _now_ms() - llm_started
         log.append(_log("llm", f"LLMError: {e.message}", llm_elapsed))
-        _logger.warning("router LLM error user=%s code=%s", preferences.get("user_id"), e.code)
+        _logger.warning(
+            "router LLM error rid=%s user=%s code=%s", rid, user_id, e.code
+        )
         return _finalize_no_match(preferences, log)
     except Exception as e:  # 最后兜底：任何异常都不向上抛
         llm_elapsed = _now_ms() - llm_started
         log.append(_log("llm", f"unexpected: {type(e).__name__}: {e}", llm_elapsed))
-        _logger.exception("router LLM unexpected error user=%s", preferences.get("user_id"))
+        _logger.exception(
+            "router LLM unexpected error rid=%s user=%s", rid, user_id
+        )
         return _finalize_no_match(preferences, log)
 
     llm_elapsed = _now_ms() - llm_started
     log.append(_log("llm", f"got response in {llm_elapsed}ms", llm_elapsed))
+
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug(
+            "router response rid=%s user=%s\n%s",
+            rid,
+            user_id,
+            render_response_content(response.get("content", "")),
+        )
 
     try:
         parsed = parse_router_response(response.get("content", ""))
     except RouterResponseError as e:
         log.append(_log("llm", f"parse failed: {e}", 0))
         return _finalize_no_match(preferences, log)
+
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug(
+            "router parsed rid=%s user=%s selected=%s reason=%r",
+            rid,
+            user_id,
+            parsed["selected_cuisines"],
+            parsed.get("routing_reason", ""),
+        )
 
     raw_cuisines = parsed["selected_cuisines"]
     valid_cuisines = [c for c in raw_cuisines if c in CUISINE_IDS]

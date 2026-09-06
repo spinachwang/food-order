@@ -13,6 +13,7 @@ from typing import TypedDict
 from app.agents.llm.types import ChatRequest
 from app.agents.state import UserPreferencesDict
 from app.core.constants import CUISINE_IDS
+from app.core.request_id import get_request_id
 
 _logger = logging.getLogger(__name__)
 
@@ -149,7 +150,11 @@ def parse_router_response(raw_content: str) -> RouterLLMResponse:
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, ValueError) as e:
-        _logger.info("router LLM response is not valid JSON: %s", e)
+        _logger.info(
+            "router LLM response is not valid JSON rid=%s err=%s",
+            get_request_id() or "-",
+            e,
+        )
         raise RouterResponseError("not JSON") from e
 
     if not isinstance(data, dict):

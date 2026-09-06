@@ -78,6 +78,18 @@ from app.agents.llm.factory import get_llm_provider  # noqa: E402
 from app.agents.llm.testing import FakeLLMProvider  # noqa: E402
 from app.agents.state import AgentState, CuisineExpertOutput, UserPreferencesDict  # noqa: E402
 from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT  # noqa: E402
+from app.core.logging import setup_logging  # noqa: E402
+from app.core.request_id import new_request_id, set_request_id  # noqa: E402
+
+# Wire stdlib logging so every node / LLM call in this run logs to stderr
+# with the same `rid=...` tag the FastAPI entry would set. Mirrors the
+# behavior of `uvicorn app.main:app` so dev runs match prod output shape.
+setup_logging()
+# The FastAPI entry would set this per request; the smoke script runs once,
+# so we set a single rid for the whole workflow and surface it in the
+# summary so the user can grep their log file.
+_RID = new_request_id()
+set_request_id(_RID)
 
 
 # ---------------------------------------------------------------------------
