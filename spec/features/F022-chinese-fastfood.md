@@ -1,6 +1,6 @@
 # F022 — 中式快餐专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003](F003-cuisine-expert-contract.md)、[F030](F030-amap-restaurant-search.md)
 
@@ -10,10 +10,10 @@
 
 ## 2. 验收清单
 
-- [ ] `cuisine_id="chinese_fastfood"`
-- [ ] 关键词覆盖：快餐 / 便当 / 黄焖鸡 / 沙县 / 兰州拉面
-- [ ] 与鲁菜的边界：黄焖鸡起源山东但定位是快餐，归本菜系
-- [ ] 单测覆盖
+- [x] `cuisine_id="chinese_fastfood"`
+- [x] 关键词覆盖：快餐 / 便当 / 黄焖鸡 / 沙县 / 兰州拉面
+- [x] 与鲁菜的边界：黄焖鸡起源山东但定位是快餐，归本菜系
+- [x] 单测覆盖
 
 ## 3. 代表性菜品
 
@@ -41,4 +41,4 @@
 
 ## 6. 测试计划
 
-- [ ] `test_chinese_fastfood_expert.py`："快吃饱" → 关键词含"黄焖鸡"或"沙县"
+- [x] `test_chinese_fastfood_expert.py`："快吃饱" → 关键词含"黄焖鸡"或"沙县"
