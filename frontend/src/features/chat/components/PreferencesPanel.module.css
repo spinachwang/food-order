@@ -1,0 +1,142 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-1);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1280px;
+  margin: 0 auto 24px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rowHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rowTitle {
+  font-family: var(--f-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.rowHint {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggleRow {
+  display: flex;
+  gap: 8px;
+}
+
+.moodRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.sliderStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.ctaCount {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ctaActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ctaPrimary {
+  padding: 10px 20px;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--f-body);
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: all 140ms ease;
+}
+
+.ctaPrimary:hover:not(:disabled) {
+  background: var(--accent-deep);
+  color: var(--bg);
+  transform: translateY(-1px);
+}
+
+.ctaPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ctaPrimary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ctaSecondary {
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-warm);
+  color: var(--fg-soft);
+  border: 1px solid var(--line);
+  font-family: var(--f-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.ctaSecondary:hover {
+  color: var(--fg);
+  border-color: var(--line-strong);
+}
+
+.ctaSecondary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .moodRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

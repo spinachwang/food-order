@@ -1,0 +1,63 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-warm);
+  color: var(--fg-soft);
+  font-family: var(--f-body);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--line-strong);
+  color: var(--fg);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.label {
+  font-feature-settings: 'kern' 1;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* 选中态: accent 描边 + 半透明 accent 填充 */
+.chip.pressed {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 60%, transparent);
+}
+
+.chip.pressed .hint {
+  color: color-mix(in oklch, var(--accent-deep) 70%, var(--muted));
+}
+
+/* variant = avoid: 暗红边框 + 浅红填充 */
+.chip.avoid.pressed {
+  border-color: var(--accent-deep);
+  background: color-mix(in oklch, var(--accent-soft) 60%, var(--surface));
+  color: var(--accent-deep);
+}
+
+/* neutral: 默认不强调颜色 */
+.chip.neutral.pressed {
+  border-color: var(--fg-soft);
+  background: var(--surface);
+  color: var(--fg);
+}
