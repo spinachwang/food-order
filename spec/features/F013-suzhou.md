@@ -1,6 +1,6 @@
 # F013 — 苏菜专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 1 — GREEN；新增 `backend/tests/unit/test_suzhou_expert.py` 覆盖 F013 §2 / §4 / §6 验收点；stub prompt 片段补齐 §4 苏浙 / 苏粤 边界澄清 + 过敏原注意 + 关键词生成规则）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003](F003-cuisine-expert-contract.md)、[F030](F030-amap-restaurant-search.md)
 
@@ -10,10 +10,10 @@
 
 ## 2. 验收清单
 
-- [ ] `cuisine_id="suzhou"`
-- [ ] 关键词覆盖：苏菜 / 江苏 / 苏帮 / 淮扬
-- [ ] 与浙菜的精致区分：苏更"甜"，浙更"鲜"
-- [ ] 单测覆盖
+- [x] `cuisine_id="suzhou"`
+- [x] 关键词覆盖：苏菜 / 江苏 / 苏帮 / 淮扬
+- [x] 与浙菜的精致区分：苏更"甜"，浙更"鲜"
+- [x] 单测覆盖（`tests/unit/test_suzhou_expert.py`）
 
 ## 3. 代表性菜品
 
@@ -41,4 +41,7 @@
 
 ## 6. 测试计划
 
-- [ ] `test_suzhou_expert.py`："精致清淡偏甜"输入 → 关键词含"苏菜"或"淮扬"
+- [x] `test_suzhou_expert.py`：用户输入"精致清淡偏甜" → prompt 含菜系词"苏菜 / 江苏 / 苏帮 / 淮扬"任一 + 与浙菜的区分澄清
+- [x] `test_suzhou_expert.py`：prompt 片段含 4 个菜系词全部 + ≥3 道代表菜
+- [x] `test_suzhou_expert.py`：parse_output 透传苏菜 happy path 与非法 JSON fallback
+- [x] `test_suzhou_expert.py`：与粤菜的区分（"粤菜" + "广式 + 海鲜 vs 江淮河鲜 + 刀工"）落在 prompt 片段中

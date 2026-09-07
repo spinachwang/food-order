@@ -7,6 +7,65 @@ src = ["app", "tests"]
 select = ["E", "F", "I", "B", "UP", "N", "SIM", "RUF"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# Prompt templates intentionally use full-width Chinese punctuation.
+"app/agents/cuisines/prompts/*.py" = ["RUF001"]
+"app/agents/cuisines/stubs/*.py" = ["RUF001"]
+"tests/**/*.py" = ["RUF001", "N806"]
+# Functional TypedDict syntax is clearer for NotRequired fields.
+# F002 扩展的 RoutingLogEntry / RouterOutput 含中文注释，统一加 RUF00x 忽略。
+"app/agents/state.py" = ["UP013", "RUF001", "RUF002", "RUF003"]
+# F040 总结 Agent 的 prompt 模板与编排模块含大量中文 docstring / 注释，全角
+# 标点与 spec（F040 §3.3 / §5 / §7）口径一致。
+"app/agents/prompts/*.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/scoring.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/summary.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/unit/test_summary_agent.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# Depends(...) defaults are the canonical FastAPI pattern.
+"app/api/**/*.py" = ["B008"]
+# SessionLocal mirrors SQLAlchemy idiom.
+"app/core/db.py" = ["N806"]
+# Comments intentionally use Chinese full-width punctuation to label semantics.
+"app/core/constants.py" = ["RUF003"]
+# F002 routing modules embed Chinese 规则文案 + 中文 docstring full-width punctuation.
+"app/agents/main_router.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/routing/*.py" = ["RUF001", "RUF002", "RUF003"]
+# F002 路由测试的注释 / 字符串含大量中文全角标点，与产品文案保持一致。
+"tests/unit/test_main_router.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+"tests/unit/test_routing_rules.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+"tests/unit/test_routing_allergies.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F030 高德 MCP 工具模块 — 中文注释 / docstring 含全角标点，与产品文案保持一致。
+"app/mcp/**/*.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/unit/test_amap_restaurant.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F012 鲁菜专家测试的 docstring / 注释大量引用 F012 spec 全角中文标点。
+"tests/unit/test_shandong_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F013 苏菜专家测试的 docstring / 注释大量引用 F013 spec 全角中文标点。
+"tests/unit/test_suzhou_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F015 闽菜专家测试的 docstring / 注释大量引用 F015 spec 全角中文标点。
+"tests/unit/test_fujian_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F016 湘菜专家测试的 docstring / 注释大量引用 F016 spec 全角中文标点。
+"tests/unit/test_hunan_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F017 徽菜专家测试的 docstring / 注释大量引用 F017 spec 全角中文标点。
+"tests/unit/test_anhui_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F018 日料专家测试的 docstring / 注释大量引用 F018 spec 全角中文标点。
+"tests/unit/test_japanese_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F019 西餐专家测试的 docstring / 注释大量引用 F019 spec 全角中文标点。
+"tests/unit/test_western_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F022 中式快餐专家测试的 docstring / 注释大量引用 F022 spec 全角中文标点。
+"tests/unit/test_chinese_fastfood_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F020 西式快餐专家测试的 docstring / 注释大量引用 F020 spec 全角中文标点。
+"tests/unit/test_western_fastfood_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+"tests/integration/test_main_router_integration.py" = ["RUF001", "RUF002", "RUF003", "N806"]
+# F002 dev 入口（scripts/dev_route.py）的 docstring / CLI help 含全角标点，与
+# 产品文案保持一致。
+"../scripts/dev_route.py" = ["RUF001", "RUF002", "RUF003"]
+# F004 LangGraph workflow Nodes 与 graph 图骨架大量使用中文 docstring / 注释，
+# 全角标点与 spec（F004 §3.4 / §6 / §8）口径一致。
+"app/agents/graph.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/nodes/*.py" = ["RUF001", "RUF002", "RUF003"]
+# F004 SSE 端点（api/v1/agent.py）的注释含 spec 引用文案，全角标点。
+"app/api/v1/agent.py" = ["RUF001", "RUF002", "RUF003", "B008"]
+
 [tool.ruff.format]
 quote-style = "double"
 
@@ -16,7 +75,20 @@ strict = true
 ignore_missing_imports = true
 files = ["app", "tests"]
 
+[[tool.mypy.overrides]]
+# LangGraph 0.2.x ships thin / partial type stubs; Pydantic-introspected
+# schemas (`StateGraph[AgentState, ...].compiled`) are also hard to name.
+# `BaseCheckpointSaver` is a generic — the stub omits its typevars. We
+# silence these here rather than wrapping every annotation.
+module = [
+  "app.agents.graph",
+  "app.agents.nodes.*",
+  "app.api.v1.agent",
+]
+ignore_errors = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra --strict-markers --strict-config"
+addopts = "-ra --strict-markers --strict-config --cov=app --cov-report=term-missing --cov-fail-under=80"
+asyncio_mode = "auto"

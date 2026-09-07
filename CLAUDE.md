@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-`food-order` 是一个**餐饮点单 / 外卖**方向的 Web 应用（具体业务范围在 [`spec/product.md`](spec/product.md) 落定）。本仓库当前为 M0 — 骨架阶段。
+`food-order` 是一个**餐饮点单 / 外卖**方向的 Web 应用（具体业务范围在 [`spec/product.md`](spec/product.md) 落定）
 
-## 技术栈（固定）
+## 技术栈
 
 | 层 | 选型 | 说明 |
 |---|---|---|
@@ -107,30 +107,16 @@ food-order/
 - 前端按 **feature** 切片而非按文件类型；跨 feature 复用才上提 `components/`。
 - 函数 < 50 行，文件 < 800 行，嵌套 < 4 层（继承全局规则）。
 
----
 
-## 代码风格（固定）
+### LLM 提示词资产（first-class）
 
-### Python
-- 遵循 **PEP 8**，由 `ruff` 自动执行；行宽 100。
-- 类型注解**强制**（公开函数 / 方法必须有返回类型）；`mypy --strict` 视模块开启。
-- 优先 dataclass / Pydantic / SQLModel；**避免裸 dict 传递**。
-- **不可变优先**：能返回新对象就不就地变更。
-- 错误显式处理：业务异常用自定义 `DomainError` 体系；底层异常在 service 层捕获并重抛。
-- 日志用 `logging.getLogger(__name__)`；禁止 `print()` 调试语句混入代码。
+LLM 提示词不是普通字符串，而是与代码并列的 first-class 资产，必须独立维护、不与业务逻辑混在一起。
 
-### TypeScript / React
-- ESLint + Prettier；React 函数组件 + Hooks。
-- Props 用 `interface` 而非 `type`（除非联合类型）。
-- 命名：组件 PascalCase，hook `use*`，普通函数 camelCase，常量 `UPPER_SNAKE_CASE`。
-- 副作用统一在 hook / event handler 中；组件本身保持纯渲染。
-- API 调用放 `features/<x>/api.ts`，通过 TanStack Query 暴露 hooks。
-
-### 共用
-- 文件 < 800 行，函数 < 50 行，嵌套 < 4 层。
-- 早返回替代深层 if/else。
-- 任何"魔法数字"提取为命名常量。
-- 所有密钥从 `.env` 读取，**禁止**硬编码；启动时校验必需 env 存在。
+- **位置**：统一放在 `backend/app/agents/prompts/`
+- **承载形式**：单独 `.py` 模板函数 + 模板常量；菜系片段优先用独立模块 / 字典 / 文本文件
+- **禁止**：在 `services/` / `routers/` / Node 函数体内联 `system_content = "..."` 这类字符串
+- **调用**：业务逻辑通过 `from app.agents.prompts.<x> import render_<x>_prompt` 之类的稳定 API 调用；模板内部变更不破坏调用方
+- **理由与详细约束**：见 [spec/adr/0003-prompts-as-first-class-assets.md](spec/adr/0003-prompts-as-first-class-assets.md)
 
 ---
 
@@ -196,6 +182,19 @@ food-order/
 2. CI 全绿才能合并
 3. 评审至少 1 人；触及鉴权 / 支付 / 数据模型时需 2 人
 4. squash merge，commit message 取 PR 标题
+
+### 4. 手动验收脚本（Manual Smoke Test）
+
+每个 spec **实现完成**后，必须随 PR 一起提交一条端到端冒烟脚本，供开发者手动跑通整个流程做最后一道验证。
+
+- **位置**：`scripts/<feature-slug>.py`（参考已有 `scripts/dev_route.py` 风格；feature-slug 取 spec 标题的连字符 / 下划线版，如 `langgraph_workflow.py`）
+- **入口**：从仓库根目录 `python scripts/<file>.py "<输入>"` 一行可跑；使用 conda 环境遵循全局规则
+- **覆盖范围**：从该 spec 的用户故事入口开始，沿主流程走到底（输入 → 路由 → 菜系专家 → summary → 推荐结果）
+- **用例**：至少 1 条 happy path + 1 条异常 / 兜底路径；CLI 默认走真实链路（读 `.env` 中的 LLM API、DB、第三方服务）
+- **节省 token / CI 友好**：参考 `dev_route.py` 的 `--llm-response` 模式，允许注入 fake provider 回包，方便在缺凭据 / 跑 CI 时快速验证
+- **失败行为**：可读错误打印到 stderr，**不静默退出**；返回非零 exit code 让外层脚本能接住
+- **与自动化测试的边界**：冒烟脚本跑的是"真实集成"路径；`tests/integration` 跑的是"被 mock 的集成"路径。两者并存，**不互相替代**
+- **维护**：spec 变更（API、状态机、提示词）时同 PR 内同步更新脚本；脚本长期跑不通视为 bug
 
 ## 环境与凭据
 

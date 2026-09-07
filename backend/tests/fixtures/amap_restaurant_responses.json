@@ -1,0 +1,214 @@
+{
+  "_comment": "Mock 样本 — 用于 backend/tests/unit/test_amap_restaurant.py 的 respx mock. 字段格式严格遵循高德『周边搜索』v3 API (https://restapi.amap.com/v3/place/around) 真实响应 schema. 修改本文件前请同步 spec/features/F030-amap-restaurant-search.md §3.2 字段定义.",
+
+  "happy_path_10_pois": {
+    "status": "1",
+    "count": "10",
+    "info": "OK",
+    "infocode": "10000",
+    "suggestion": {"keywords": [], "cities": []},
+    "pois": [
+      {
+        "id": "B0FFFDDCFE",
+        "name": "海底捞(国贸店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区建国门外大街1号",
+        "location": "116.433840,39.908740",
+        "tel": "010-65056666",
+        "distance": "235",
+        "biz_ext": {
+          "rating": "4.8",
+          "cost": "120"
+        },
+        "tag": ["火锅", "川菜", "服务好"]
+      },
+      {
+        "id": "B0FFFE0011",
+        "name": "呷哺呷哺(国贸店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区建国门外大街22号",
+        "location": "116.435100,39.909200",
+        "tel": "010-65123678",
+        "distance": "412",
+        "biz_ext": {
+          "rating": "4.5",
+          "cost": "85"
+        },
+        "tag": ["火锅", "小火锅"]
+      },
+      {
+        "id": "B0FFFE0022",
+        "name": "巴奴毛肚火锅",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区光华路9号",
+        "location": "116.440210,39.911580",
+        "tel": "010-65889888",
+        "distance": "685",
+        "biz_ext": {
+          "rating": "4.7",
+          "cost": "135"
+        },
+        "tag": ["火锅", "毛肚", "川式"]
+      },
+      {
+        "id": "B0FFFE0033",
+        "name": "小肥羊(国贸三期店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区国贸三期B1",
+        "location": "116.432510,39.908920",
+        "tel": "010-65071234",
+        "distance": "521",
+        "biz_ext": {
+          "rating": "4.3",
+          "cost": "95"
+        },
+        "tag": ["火锅", "羊肉"]
+      },
+      {
+        "id": "B0FFFE0044",
+        "name": "宽板凳老灶火锅",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区永安里",
+        "location": "116.437800,39.910100",
+        "tel": "010-65678901",
+        "distance": "780",
+        "biz_ext": {
+          "rating": "4.1",
+          "cost": "70"
+        },
+        "tag": ["火锅", "麻辣"]
+      },
+      {
+        "id": "B0FFFE0055",
+        "name": "小龙坎(国贸店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区建外SOHO",
+        "location": "116.436210,39.907840",
+        "tel": "010-59007777",
+        "distance": "345",
+        "biz_ext": {
+          "rating": "4.6",
+          "cost": "110"
+        },
+        "tag": ["火锅", "川式", "鸭血"]
+      },
+      {
+        "id": "B0FFFE0066",
+        "name": "蜀大侠(国贸店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区光华路",
+        "location": "116.439120,39.909450",
+        "tel": "010-65860234",
+        "distance": "602",
+        "biz_ext": {
+          "rating": "4.4",
+          "cost": "100"
+        },
+        "tag": ["火锅", "牛肉"]
+      },
+      {
+        "id": "B0FFFE0077",
+        "name": "凑凑(国贸店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区国贸商城",
+        "location": "116.434120,39.908560",
+        "tel": "010-65057799",
+        "distance": "278",
+        "biz_ext": {
+          "rating": "4.5",
+          "cost": "125"
+        },
+        "tag": ["火锅", "台式", "奶茶"]
+      },
+      {
+        "id": "B0FFFE0088",
+        "name": "珮姐老火锅",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区CBD",
+        "location": "116.435780,39.909180",
+        "tel": "010-59008899",
+        "distance": "456",
+        "biz_ext": {
+          "rating": "4.2",
+          "cost": "90"
+        },
+        "tag": ["火锅", "重庆", "辣"]
+      },
+      {
+        "id": "B0FFFE0099",
+        "name": "辣府(国贸店)",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区国贸中心",
+        "location": "116.434560,39.908800",
+        "tel": "010-65051199",
+        "distance": "310",
+        "biz_ext": {
+          "rating": "4.4",
+          "cost": "105"
+        },
+        "tag": ["火锅", "上海", "鲜切"]
+      }
+    ]
+  },
+
+  "happy_path_with_missing_rating_and_cost": {
+    "status": "1",
+    "count": "3",
+    "info": "OK",
+    "infocode": "10000",
+    "pois": [
+      {
+        "id": "B0FFFE0100",
+        "name": "无名火锅店",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区",
+        "location": "116.430000,39.910000",
+        "distance": "500",
+        "biz_ext": {},
+        "tag": []
+      },
+      {
+        "id": "B0FFFE0101",
+        "name": "有评分无价格",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区",
+        "location": "116.431000,39.911000",
+        "distance": "600",
+        "biz_ext": {"rating": "3.9"},
+        "tag": []
+      },
+      {
+        "id": "B0FFFE0102",
+        "name": "有价格无评分",
+        "type": "餐饮服务;中餐厅;火锅",
+        "address": "北京市朝阳区",
+        "location": "116.432000,39.912000",
+        "distance": "700",
+        "biz_ext": {"cost": "60"},
+        "tag": []
+      }
+    ]
+  },
+
+  "empty_result": {
+    "status": "1",
+    "count": "0",
+    "info": "OK",
+    "infocode": "10000",
+    "pois": []
+  },
+
+  "invalid_key_401": {
+    "status": "0",
+    "count": "0",
+    "info": "INVALID_USER_KEY",
+    "infocode": "10001"
+  },
+
+  "quota_exceeded_429_response_status": {
+    "status": "0",
+    "count": "0",
+    "info": "CUQPS_HAS_EXCEEDED_THE_LIMIT",
+    "infocode": "10044"
+  }
+}

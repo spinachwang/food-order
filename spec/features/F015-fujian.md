@@ -1,6 +1,6 @@
 # F015 — 闽菜专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 1 — GREEN；stub prompt 片段补齐 §4 闽南 / 沙茶关键词生成规则 + 与粤菜的海鲜区分澄清 + 过敏原注意；新增 `backend/tests/unit/test_fujian_expert.py` 覆盖 §2 / §6 验收点）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003](F003-cuisine-expert-contract.md)、[F030](F030-amap-restaurant-search.md)
 
@@ -10,10 +10,10 @@
 
 ## 2. 验收清单
 
-- [ ] `cuisine_id="fujian"`
-- [ ] 关键词覆盖：闽菜 / 福建 / 闽南 / 沙茶 / 佛跳墙
-- [ ] 与粤菜的海鲜区分：闽更"汤鲜 + 山珍"，粤更"生猛海鲜"
-- [ ] 单测覆盖
+- [x] `cuisine_id="fujian"`
+- [x] 关键词覆盖：闽菜 / 福建 / 闽南 / 沙茶 / 佛跳墙
+- [x] 与粤菜的海鲜区分：闽更"汤鲜 + 山珍"，粤更"生猛海鲜"
+- [x] 单测覆盖（`tests/unit/test_fujian_expert.py`）
 
 ## 3. 代表性菜品
 
@@ -37,8 +37,13 @@
 
 ## 5. 数据 / 接口变更
 
-- 新增实现：`backend/app/agents/cuisines/fujian.py`
+- 新增实现：`backend/app/agents/cuisines/stubs/fujian.py`（继承 F003 `BaseCuisineExpert`，与其它 13 个菜系 stub 同目录）
+- 无新增数据库表 / REST 接口
 
 ## 6. 测试计划
 
-- [ ] `test_fujian_expert.py`："闽南 / 沙茶"输入 → 关键词含"闽菜"
+- [x] `test_fujian_expert.py`：用户输入"闽南 / 沙茶" → 关键词含"闽菜"（通过 build_prompt 上下文验证，不接 LLM）
+- [x] `test_fujian_expert.py`：用户输入"福建菜" → prompt 含"福建"菜系词 + 代表菜
+- [x] `test_fujian_expert.py`：用户输入"沙茶" → prompt 优先用"沙茶面"作代表菜
+- [x] `test_fujian_expert.py`：prompt 片段含全部 5 个菜系词（闽菜 / 福建 / 闽南 / 沙茶）+ 佛跳墙 + ≥3 道 F015 §3 代表菜 + 与粤菜的海鲜区分（闽"汤鲜 + 山珍" vs 粤"生猛海鲜"）+ 至少 1 个过敏原提示词
+- [x] `test_fujian_expert.py`：parse_output 透传 happy path 与非法 JSON fallback

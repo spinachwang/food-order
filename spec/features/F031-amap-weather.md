@@ -1,6 +1,6 @@
 # F031 — 高德 MCP 天气查询
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 2 — 2026-09-07 fetch_weather Node 已接入真链路, 11 单测 + 655 全量单测通过）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：无（基础服务封装）
 > **被依赖**：F040（总结 Agent 用天气决定"是否点外卖"）
@@ -11,11 +11,12 @@
 
 ## 2. 验收清单
 
-- [ ] 提供 `amap_get_weather(location)` 工具封装
-- [ ] 调用 1 秒内返回
-- [ ] 返回字段：当前温度 / 天气状况（晴雨雪雾霾）/ 未来 3 小时预报 / 降水概率 / 风力
-- [ ] 错误码透传：`AMAP_INVALID_KEY` / `AMAP_QUOTA_EXCEEDED` / `AMAP_NETWORK_ERROR`
-- [ ] 单测覆盖：mock 高德返回 → 字段解析正确
+- [x] 提供 `amap_get_weather(location)` 工具封装
+- [x] 调用 1 秒内返回
+- [x] 返回字段：当前温度 / 天气状况（晴雨雪雾霾）/ 未来 3 小时预报 / 降水概率 / 风力
+- [x] 错误码透传：`AMAP_INVALID_KEY` / `AMAP_QUOTA_EXCEEDED` / `AMAP_NETWORK_ERROR`
+- [x] 单测覆盖：mock 高德返回 → 字段解析正确
+- [x] **Phase 2 (2026-09-07) — `app/agents/nodes/fetch_weather.py` 真链路接入**: location 解析 (override > prefs > 国贸兜底) + AmapError → `weather=None` + errors entry
 
 ## 3. 输入 / 输出
 

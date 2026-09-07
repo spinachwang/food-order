@@ -1,6 +1,6 @@
 # F014 — 浙菜专家
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 1 — GREEN；增强 stub prompt 片段补齐 §4 苏菜/粤菜边界澄清 + 三派代表菜（杭帮/宁波/温州）+ 过敏原细节；新增 `backend/tests/unit/test_zhejiang_expert.py` 覆盖 F014 §2 / §4 / §6 验收点）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F003](F003-cuisine-expert-contract.md)、[F030](F030-amap-restaurant-search.md)
 

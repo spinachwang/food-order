@@ -60,6 +60,7 @@
     "cuisine_weights": { "sichuan": 0.8, "cantonese": 0.5 },
     "allergies": ["peanut"],
     "spice_tolerance": 2,
+    "temperature_preference": "room",
     "default_location": "国贸三期",
     "budget_lunch_min": "20.00",
     "budget_lunch_max": "60.00"
@@ -78,6 +79,7 @@
   "cuisine_weights": { "sichuan": 0.8, "cantonese": 0.5 },
   "allergies": ["peanut"],
   "spice_tolerance": 2,
+  "temperature_preference": "room",
   "default_location": "国贸三期",
   "budget_lunch_min": "20.00",
   "budget_lunch_max": "60.00"
@@ -106,7 +108,7 @@
 
 ```
 event: cuisine_selected
-data: {"cuisines": ["sichuan", "hunan"]}
+data: {"cuisines": ["sichuan", "hunan"], "routing_reason": "你说想吃辣的 → 川 + 湘"}
 
 event: restaurant_searching
 data: {"cuisine": "sichuan"}
@@ -137,6 +139,12 @@ data: {}
 event: error
 data: {"code": "AMAP_QUOTA_EXCEEDED", "message": "高德 API 配额耗尽"}
 ```
+
+> `cuisine_selected.routing_reason` ≤30 字、人话风格，由 [F002](features/F002-main-agent-router.md) §2 产出，
+> [F050](features/F050-chat-shell.md) 在回复气泡中直接渲染。
+>
+> 路由阶段可能出现的 `error.code`（见 F002 §6）：`EMPTY_MESSAGE`（消息为空 / 乱码，不进下游）、
+> `NO_CUISINE_MATCHED`（已按偏好 top-1 兜底，流程继续）、`ALL_CUISINES_FILTERED`（忌口把候选全剔除）。
 
 ---
 

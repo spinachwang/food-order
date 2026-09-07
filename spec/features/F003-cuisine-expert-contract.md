@@ -1,6 +1,6 @@
 # F003 — 菜系专家通用契约
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（M1 Phase 2 — 2026-09-07 base.run() 真链路接通，655 全量单测通过）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：F001（用户偏好）、F030（餐厅搜索）
 > **被依赖**：F010–F024（14 个菜系专家）、F004（整体工作流）
@@ -13,18 +13,19 @@
 
 ## 2. 验收清单
 
-- [ ] 每个菜系 Node 继承 `BaseCuisineExpert` 抽象类
-- [ ] 每个菜系注册到 `CUISINE_REGISTRY`（`cuisine_id` → Node 实例）
-- [ ] 每个菜系 Node 的输入 / 输出 schema 与本 spec §3 完全一致
-- [ ] 每个菜系 prompt 模板符合本 spec §4 模板结构
-- [ ] 每个菜系 spec 文件都引用本文档，不重复定义契约
-- [ ] 任意菜系 Node 可被主 Agent router 单独或并行调用
+- [x] 每个菜系 Node 继承 `BaseCuisineExpert` 抽象类
+- [x] 每个菜系注册到 `CUISINE_REGISTRY`（`cuisine_id` → Node 实例）
+- [x] 每个菜系 Node 的输入 / 输出 schema 与本 spec §3 完全一致
+- [x] 每个菜系 prompt 模板符合本 spec §4 模板结构
+- [x] 每个菜系 spec 文件都引用本文档，不重复定义契约
+- [x] 任意菜系 Node 可被主 Agent router 单独或并行调用
 
 ## 3. 输入 / 输出（Agent 视角）
 
 ### 3.1 LangGraph Node 接口
 
 ```python
+from abc import ABC, abstractmethod
 from typing import TypedDict
 from langgraph.graph import Node
 
@@ -42,14 +43,35 @@ class CuisineExpertOutput(TypedDict):
     keywords: list[str]                  # 传给 F030 的搜索关键词
     matched_allergies: list[str]         # 该菜系下需要避开的过敏原（用于 summary agent 二次校验）
 
-class BaseCuisineExpert(Protocol):
-    cuisine_id: str
-    display_name: str                    # 中文显示名（"川菜"）
-    llm_model: str = "MiniMax-M3"        # 统一使用同一模型（详见 §8.1）
+class BaseCuisineExpert(ABC):
+    """抽象基类（F003 §2 验收点：每个菜系 Node 继承本类）。
 
-    def build_prompt(self, inp: CuisineExpertInput) -> str: ...
-    def parse_output(self, raw: str) -> CuisineExpertOutput: ...
-    def run(self, state: AgentState) -> PartialState: ...   # LangGraph Node 入口
+    TODO(M2): matched_allergies 字段是否保留待 F003 §7 决议。
+    """
+    cuisine_id: str                      # 子类必须重写（与 F003 §3.2 cuisine_id 一致）
+    display_name: str                    # 中文显示名（"川菜"）；子类必须重写
+    llm_model: str = "MiniMax-M3"        # 统一使用同一模型（详见 §8.1）
+    prompt_fragment: str = ""            # 菜系专属 prompt 片段；子类可选重写
+
+    def build_prompt(self, inp: CuisineExpertInput) -> str:
+        """默认实现：拼接 fragment + 公共模板。子类可选 override。"""
+        ...
+
+    def parse_output(self, raw: str) -> CuisineExpertOutput:
+        """默认 JSON parse + 降级（详见 §3.3）。子类继承即可。"""
+        ...
+
+    @abstractmethod
+    async def run(self, state: AgentState) -> dict[str, object]:
+        """LangGraph Node 入口.
+
+        Phase 1 stub: 抛 NotImplementedError（F004 在 wiring 测试用 mock 覆盖）.
+        Phase 2 (2026-09-07): `BaseCuisineExpert` 默认实现已就位 — 调真实 LLM
+        (`LLMProvider.complete`), parse_output → CuisineExpertOutput. 14 个菜系
+        一律走 base.run(); 子类只在需要追加菜系专属 prompt shaping 时 override.
+        LLM 失败 / 超时 → 返回 `_fallback_output` (keywords=[], conclusion="暂不可推荐").
+        """
+        ...
 ```
 
 ### 3.2 菜系标识符（cuisine_id）枚举
@@ -75,7 +97,7 @@ CUISINE_REGISTRY = {
 
 ### 3.3 错误与重试
 
-- LLM 解析失败 → 重试 1 次，仍失败则该菜系 Node 输出 `conclusion="暂不可推荐"` + `keywords=[]`，主流程降级到其他菜系
+- **LLM 解析失败 → 重试 1 次（归属 expert 层，不在 provider 层做）**：LLM provider 层只对 HTTP 5xx / 429 / timeout 做 transport-level 重试（exponential backoff，可配置 max_retries）；`BaseCuisineExpert.parse_output` 收到 raw 字符串后做 1 次 JSON parse 重试，仍失败则该菜系 Node 输出 `conclusion="暂不可推荐"` + `keywords=[]`，主流程降级到其他菜系
 - `keywords` 为空 → 跳过 F030 调用，不向 summary agent 提供餐厅
 - 单个菜系 Node 异常 → **不中断**整体工作流，由 summary agent 决定如何处理（详见 F040）
 
@@ -127,13 +149,13 @@ CUISINE_REGISTRY = {
 
 ### 单元测试
 
-- [ ] `test_base_contract.py`：所有 14 菜系 Node 继承 `BaseCuisineExpert`，注册到 `CUISINE_REGISTRY`
-- [ ] `test_base_contract.py`：每个 Node 的 `parse_output` 能正确解析合法 JSON
-- [ ] `test_base_contract.py`：每个 Node 在 LLM 返回非法 JSON 时按 §3.3 降级
+- [x] `test_base_contract.py`：所有 14 菜系 Node 继承 `BaseCuisineExpert`，注册到 `CUISINE_REGISTRY`
+- [x] `test_base_contract.py`：每个 Node 的 `parse_output` 能正确解析合法 JSON
+- [x] `test_base_contract.py`：每个 Node 在 LLM 返回非法 JSON 时按 §3.3 降级
 
 ### 集成测试
 
-- [ ] `test_cuisine_parallel.py`：主 Agent 可并行触发 ≥3 个菜系 Node，且结果独立聚合到 `AgentState.cuisine_results`
+- [x] `test_cuisine_parallel.py`：主 Agent 可并行触发 ≥3 个菜系 Node，且结果独立聚合到 `AgentState.cuisine_results`
 
 ### 端到端（Playwright）
 
