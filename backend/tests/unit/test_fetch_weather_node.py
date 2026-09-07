@@ -113,14 +113,42 @@ class TestResolveLocation:
         assert _resolve_location(state) == "上海"
 
     def test_prefs_granular_name_falls_back(self) -> None:
-        """F001 §3.5: 「国贸」/「国贸三期」/ 完整地址 → fallback (weather API 不识别).
+        """F001 §3.5: 「国贸三期」/「静安嘉里中心」/ 完整地址 → fallback.
 
-        注: fetch_weather 不会拦城市名 (避免误杀) — 仅拦坐标. 城市名交给
-        Amap weather 自行判断; 真的不识别也会走已有的 AMAP_LOCATION_INVALID
-        降级, 不会卡流程.
+        2026-09-07 bug 实测: 用户偏好 = '上海 · 静安嘉里中心 B2' 时, Amap
+        weather 返回空 lives → AMAP_LOCATION_INVALID → 显示「天气暂不可用」.
+        Node 层必须拦下含数字 / 字母 / 特殊字符的过细字符串, 不能 pass-through.
         """
         state = _state(user_preferences=_prefs(default_location="国贸三期"))
-        assert _resolve_location(state) == "国贸三期"  # 不过滤, 交给 Amap
+        assert _resolve_location(state) == "110000"
+
+    def test_prefs_full_address_falls_back(self) -> None:
+        """F001 §3.5: 完整地址 (含数字 + 字母 + 特殊字符) → fallback.
+
+        2026-09-07 实测触发场景: 用户偏好 = '上海 · 静安嘉里中心 B2'.
+        """
+        state = _state(user_preferences=_prefs(default_location="上海 · 静安嘉里中心 B2"))
+        assert _resolve_location(state) == "110000"
+
+    def test_prefs_with_digits_falls_back(self) -> None:
+        """含数字的字符串一律 fallback (楼号 / 邮编)."""
+        state = _state(user_preferences=_prefs(default_location="上海100号"))
+        assert _resolve_location(state) == "110000"
+
+    def test_prefs_with_english_falls_back(self) -> None:
+        """含英文字母的字符串一律 fallback (拼音 / 缩写)."""
+        state = _state(user_preferences=_prefs(default_location="Beijing CBD"))
+        assert _resolve_location(state) == "110000"
+
+    def test_prefs_too_long_chinese_falls_back(self) -> None:
+        """超过 4 个汉字的字符串视为非法 (城市名不会这么长)."""
+        state = _state(user_preferences=_prefs(default_location="广州市天河区"))
+        assert _resolve_location(state) == "110000"
+
+    def test_prefs_district_falls_back(self) -> None:
+        """F001 §3.5: 行政区「朝阳区」/「海淀区」 → fallback (Amap weather 只收城市级)."""
+        state = _state(user_preferences=_prefs(default_location="朝阳区"))
+        assert _resolve_location(state) == "110000"
 
     def test_no_prefs_no_override_falls_back(self) -> None:
         state = _state(user_preferences=_prefs(default_location=None))
