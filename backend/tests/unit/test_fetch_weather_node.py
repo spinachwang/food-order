@@ -26,13 +26,14 @@ from app.core.exceptions import AmapLocationInvalidError, AmapNetworkError
 
 
 def _prefs(**overrides: Any) -> UserPreferencesDict:
+    """默认 default_location='110000' 北京 adcode — F001 §3.5 合法格式."""
     prefs: UserPreferencesDict = {
         "user_id": "u-f031",
         "cuisine_weights": dict.fromkeys(CUISINE_IDS, 0.5),
         "allergies": [],
         "spice_tolerance": 1,
         "temperature_preference": "room",
-        "default_location": "国贸",
+        "default_location": "110000",
         "budget_lunch_min": Decimal("30.00"),
         "budget_lunch_max": Decimal("80.00"),
     }
@@ -73,24 +74,71 @@ def _fake_weather() -> dict[str, Any]:
 
 
 class TestResolveLocation:
-    def test_override_takes_priority(self) -> None:
-        state = _state(location_override="116.50,39.90", user_preferences=_prefs(default_location="上海"))
-        assert _resolve_location(state).startswith("116.50")
+    """F001 §3.5: 仅放行 adcode / 城市名; 坐标 (lng,lat) 必须 fallback.
 
-    def test_prefs_default_when_no_override(self) -> None:
-        state = _state(user_preferences=_prefs(default_location="上海陆家嘴"))
-        assert "上海" in _resolve_location(state)
+    Amap /v3/weather/weatherInfo 不收坐标, 传坐标会返回空 lives
+    → AMAP_LOCATION_INVALID → 前端 weather=null → 「天气暂不可用」(2026-09-07 bug).
+    """
 
-    def test_fallback_to_guomao(self) -> None:
-        state = _state(user_preferences=_prefs(default_location=None))
-        assert _resolve_location(state).startswith("116.433840")  # 国贸
+    def test_adcode_override_passes_through(self) -> None:
+        state = _state(location_override="310000")  # 上海 adcode
+        assert _resolve_location(state) == "310000"
 
-    def test_empty_override_falls_through(self) -> None:
+    def test_city_name_override_passes_through(self) -> None:
+        state = _state(location_override="上海")
+        assert _resolve_location(state) == "上海"
+
+    def test_coord_override_falls_back(self) -> None:
+        """F001 §3.5: 坐标 override → fallback (Amap weather 不收)."""
         state = _state(
-            location_override="   ",
+            location_override="116.50,39.90",
             user_preferences=_prefs(default_location="上海"),
         )
-        assert "上海" in _resolve_location(state)
+        # override 是坐标 → 跳过, prefs 是城市名 (合法) → 用 prefs
+        assert _resolve_location(state) == "上海"
+
+    def test_coord_override_no_prefs_falls_back_to_default(self) -> None:
+        state = _state(
+            location_override="116.50,39.90",
+            user_preferences=_prefs(default_location=None),
+        )
+        assert _resolve_location(state) == "110000"
+
+    def test_prefs_adcode_passes_through(self) -> None:
+        state = _state(user_preferences=_prefs(default_location="310000"))
+        assert _resolve_location(state) == "310000"
+
+    def test_prefs_city_name_passes_through(self) -> None:
+        state = _state(user_preferences=_prefs(default_location="上海"))
+        assert _resolve_location(state) == "上海"
+
+    def test_prefs_granular_name_falls_back(self) -> None:
+        """F001 §3.5: 「国贸」/「国贸三期」/ 完整地址 → fallback (weather API 不识别).
+
+        注: fetch_weather 不会拦城市名 (避免误杀) — 仅拦坐标. 城市名交给
+        Amap weather 自行判断; 真的不识别也会走已有的 AMAP_LOCATION_INVALID
+        降级, 不会卡流程.
+        """
+        state = _state(user_preferences=_prefs(default_location="国贸三期"))
+        assert _resolve_location(state) == "国贸三期"  # 不过滤, 交给 Amap
+
+    def test_no_prefs_no_override_falls_back(self) -> None:
+        state = _state(user_preferences=_prefs(default_location=None))
+        assert _resolve_location(state) == "110000"
+
+    def test_empty_override_uses_prefs(self) -> None:
+        state = _state(
+            location_override="   ",
+            user_preferences=_prefs(default_location="310000"),
+        )
+        assert _resolve_location(state) == "310000"
+
+    def test_empty_override_empty_prefs_falls_back(self) -> None:
+        state = _state(
+            location_override="",
+            user_preferences=_prefs(default_location=""),
+        )
+        assert _resolve_location(state) == "110000"
 
 
 # ---------------------------------------------------------------------------
@@ -108,19 +156,29 @@ class TestFetchWeatherHappyPath:
         assert "weather" in out
         assert out["weather"]["temperature_celsius"] == 22.0  # type: ignore[index]
         assert out["weather"]["condition"] == "sunny"  # type: ignore[index]
-        # 默认走 prefs.default_location="国贸"
+        # 默认走 prefs.default_location="110000" (北京 adcode)
         mock.assert_called_once()
         call_kwargs = mock.call_args.kwargs
-        assert call_kwargs["location"] == "国贸"
+        assert call_kwargs["location"] == "110000"
         assert call_kwargs["extensions"] == "base"
 
-    async def test_uses_override_location(self) -> None:
+    async def test_uses_adcode_override_location(self) -> None:
+        """F031 §3.1: override 是 adcode 直接传过去."""
+        with patch(
+            "app.agents.nodes.fetch_weather.amap_get_weather",
+            return_value=_fake_weather(),
+        ) as mock:
+            await node_fetch_weather(_state(location_override="310000"))
+        assert mock.call_args.kwargs["location"] == "310000"
+
+    async def test_coord_override_falls_back_to_default(self) -> None:
+        """F001 §3.5: 坐标 override → fallback 到默认 adcode."""
         with patch(
             "app.agents.nodes.fetch_weather.amap_get_weather",
             return_value=_fake_weather(),
         ) as mock:
             await node_fetch_weather(_state(location_override="116.50,39.90"))
-        assert mock.call_args.kwargs["location"].startswith("116.50")
+        assert mock.call_args.kwargs["location"] == "110000"
 
 
 # ---------------------------------------------------------------------------
