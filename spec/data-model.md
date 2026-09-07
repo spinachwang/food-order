@@ -44,7 +44,7 @@
 | `allergies` | JSON | NOT NULL DEFAULT '[]' | `["peanut", "shellfish", ...]`，枚举值见 F001 §3 |
 | `spice_tolerance` | TINYINT UNSIGNED | NOT NULL DEFAULT 0 | 0=不吃辣 / 1=微辣 / 2=中辣 / 3=重辣 |
 | `temperature_preference` | VARCHAR(8) | NOT NULL DEFAULT 'room' | 温度偏好：`"cold"` 冰镇 / 凉拌 / `"room"` 常温 / `"hot"` 热乎；详见 F001 §3.4 |
-| `default_location` | VARCHAR(128) | NULL | 默认搜索锚点（地标 / 写字楼），由用户设置 |
+| `default_location` | VARCHAR(128) | NULL | 默认搜索锚点（6 位 adcode 或主流城市名；详见 F001 §3.5），由用户设置 |
 | `budget_lunch_min` | DECIMAL(8,2) | NULL | 午餐预算下限（元），可空 |
 | `budget_lunch_max` | DECIMAL(8,2) | NULL | 午餐预算上限（元），可空；**包含配送费**（即"用户实际愿意为一份外卖付出的总价"上限，含餐品 + 打包费 + 平台配送费） |
 | `created_at` | DATETIME(3) | NOT NULL | |

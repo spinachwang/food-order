@@ -25,7 +25,7 @@
 ```python
 class RestaurantSearchInput(TypedDict):
     keywords: list[str]                 # 1-5 个关键词（来自 F003 菜系专家）
-    location: str                        # 锚点（地标 / 写字楼 / 经纬度字符串）
+    location: str                        # 锚点（6 位 adcode 或主流城市名；详见 F001 §3.5）
     radius_meters: int = 1500           # 默认 1.5km
     min_rating: float = 3.5              # 最低评分
     max_results: int = 10                # 上限
@@ -99,6 +99,23 @@ AMAP_TIMEOUT_SECONDS=2.0
 ```
 
 `.env.example` 同步更新（参考 ADR 0002 文档末尾）。
+
+### 6.1 location 字段约束（与 F031 / F001 §3.5 一致）
+
+仅收 6 位 adcode / 主流城市名。Node 层（`search_restaurants.py`）发现
+`default_location` 或 `location_override` 是坐标 / 过细地标时，落回
+`_DEFAULT_LOCATION = "110000"`（北京 adcode），并 `WARNING` 日志记录
+触发兜底的 `user_id` 与原始值。
+
+> **历史背景**：M1 早期本 spec 允许 `lng,lat` 坐标，因 `place/around`
+> 支持坐标搜索。2026-09-07 决议统一为 adcode / 城市名——原因是
+> `fetch_weather` Node 复用同一锚点但 weather API 不收坐标，导致
+> 「用户偏好存坐标 → weather 静默失败 → 前端显示"天气暂不可用"」的
+> bug 反复出现。
+
+> **M1 前端协作**：M1 阶段前端 `addr-edit`（F050 §2.4）直接采集用户
+> 文本，存储时宽松校验；不在前端做 regeo。M2 接入高德选址组件后由
+> 前端保证提交的就是 adcode / 城市名。
 
 ## 7. 数据 / 接口变更
 

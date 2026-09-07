@@ -24,7 +24,7 @@
 
 ```python
 class WeatherQueryInput(TypedDict):
-    location: str                        # 地标 / 经纬度
+    location: str                        # 6 位 adcode 或主流城市名（详见 F001 §3.5）
 ```
 
 ### 3.2 输出
@@ -47,7 +47,9 @@ class WeatherInfo(TypedDict):
 @tool
 async def amap_get_weather(location: str) -> WeatherInfo:
     """调用高德 MCP /v3/weather/weatherInfo。
-    location 优先使用经纬度字符串 "lng,lat"，其次是高德可解析的地标名。
+    location 必须为 6 位 adcode 或主流城市名（详见 F001 §3.5）——
+    Amap `/v3/weather/weatherInfo` **不收经纬度坐标**，传坐标会返回空
+    `lives` → `AMAP_LOCATION_INVALID`。
     """
 ```
 

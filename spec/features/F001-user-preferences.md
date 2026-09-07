@@ -69,6 +69,37 @@ ALLERGY_VALUES = {
 
 > **来源**：F050 §8 待澄清 #6 决议 2026-08-30。原 prototype 温度 toggle 误用 `spice_tolerance` 字段；改为独立 `temperature_preference` 字段，`spice_tolerance` 恢复"辣度 0–3"原意。前端控件不变，提交时映射为字符串。
 
+### 3.5 默认位置（`default_location`）
+
+Agent 搜索锚点。由前端 `addr-edit`（F050 §2.4）写入，覆盖到
+`location_override`（`POST /api/v1/agent/chat`）。
+
+合法格式（与 `location_override` 共用同一约束）：
+
+| 格式 | 示例 | 备注 |
+|---|---|---|
+| 6 位数字 adcode | `"110000"` | **推荐**；最稳，Amap 所有相关 API 都收 |
+| 主流城市名 | `"北京"` / `"上海"` / `"广州"` | 限省级或直辖市；Amap 可识别 |
+
+非法格式（**不收**，Node 层会兜底到默认城市）：
+
+- 经纬度坐标 `"116.43,39.91"` —— Amap `/v3/weather/weatherInfo` **不收坐标**，会返回空 `lives` → `AMAP_LOCATION_INVALID`
+- 区级 / 楼宇级地标 `"国贸"` / `"国贸三期"` —— weather API 同样不识别；F030 `place/around` 虽收但搜索质量差
+- 完整地址 `"北京市朝阳区建国门外大街1号"` —— 任何 Amap API 都不直接收
+
+> **设计动机**（2026-09-07 决议）：Amap 两个核心 API 对 location 字段
+> 的接受能力不一致 —— `place/around` 收坐标 / adcode / 地标名；
+> `weather/weatherInfo` 只收 adcode / 城市名。统一收 adcode + 城市名
+> 让 F030 / F031 共用同一锚点解析逻辑，避免 `fetch_weather` Node 默认
+> `lng,lat` 触发的 `AMAP_LOCATION_INVALID` bug 重演。
+
+校验 / 兜底策略：
+
+- **PUT /api/v1/preferences** —— 宽松校验：非空、长度 ≤ 128、不匹配坐标正则即放行（避免打断旧用户的 `"国贸"` 偏好；非法格式由 Node 层兜底）
+- **POST /api/v1/agent/chat**（`location_override`）—— 同样宽松校验
+- **Node 层兜底** —— `fetch_weather.py` / `search_restaurants.py` 发现 `default_location` / `location_override` 是坐标或非城市名时，落回 `_DEFAULT_LOCATION = "110000"`（北京 adcode），并在日志里 `WARNING` 记录触发兜底的 `user_id` 与原始值
+- **M2 计划** —— 接入高德选址组件后，由前端保证提交的就是 adcode / 城市名；届时 PUT 校验升级为严格模式，新增 `INVALID_LOCATION_FORMAT` 错误码
+
 ## 4. 输入 / 输出（Agent 视角）
 
 ```python
@@ -111,13 +142,14 @@ API 契约详见 [../api.md § M1](../api.md#m1-agent-mvp)。
 
 ## 6. 错误码
 
-| code | 含义 | HTTP |
-|---|---|---|
-| `INVALID_CUISINE_ID` | cuisine_weights 含未在 F003 §3.2 注册的 ID | 400 |
-| `INVALID_ALLERGY` | allergies 含未在 §3.1 注册的值 | 400 |
-| `INVALID_SPICE` | spice_tolerance ∉ [0,3] | 400 |
-| `INVALID_TEMPERATURE` | temperature_preference ∉ {"cold","room","hot"}（§3.4） | 400 |
-| `INVALID_BUDGET` | min > max 或负值 | 400 |
+| code | 含义 | HTTP | 备注 |
+|---|---|---|---|
+| `INVALID_CUISINE_ID` | cuisine_weights 含未在 F003 §3.2 注册的 ID | 400 | |
+| `INVALID_ALLERGY` | allergies 含未在 §3.1 注册的值 | 400 | |
+| `INVALID_SPICE` | spice_tolerance ∉ [0,3] | 400 | |
+| `INVALID_TEMPERATURE` | temperature_preference ∉ {"cold","room","hot"}（§3.4） | 400 | |
+| `INVALID_BUDGET` | min > max 或负值 | 400 | |
+| `INVALID_LOCATION_FORMAT` | default_location / location_override 是坐标或非城市名 | 400 | **M1 暂不触发**（PUT 宽松校验，见 §3.5）；M2 引入严格校验时启用 |
 
 ## 7. 测试计划
 

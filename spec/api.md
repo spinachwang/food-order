@@ -98,9 +98,11 @@
 {
   "message": "今天想吃辣的",
   "session_id": "可选 UUID，用于多轮上下文",
-  "location_override": "可选，覆盖默认位置"
+  "location_override": "可选，覆盖默认位置（格式约束见 F001 §3.5：6 位 adcode 或主流城市名）"
 }
 ```
+
+> `default_location` / `location_override` 格式约束详见 [F001 §3.5](features/F001-user-preferences.md)。
 
 - **响应 200**：`Content-Type: text/event-stream`
 
