@@ -1,0 +1,142 @@
+.aside {
+  position: sticky;
+  top: 80px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.dot_idle {
+  background: var(--muted);
+}
+
+.dot_streaming {
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.dot_done {
+  background: var(--green);
+}
+
+.dot_error {
+  background: var(--accent-deep);
+}
+
+.headLabel {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.placeholder {
+  font-family: var(--f-body);
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+  font-style: italic;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.itemBody {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.marker {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-warm);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.itemTitle {
+  font-family: var(--f-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  margin: 0 0 2px;
+  word-break: break-word;
+}
+
+.itemEm {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+  word-break: break-word;
+}
+
+.item.done .marker {
+  background: color-mix(in oklch, var(--green) 18%, var(--surface));
+  border-color: color-mix(in oklch, var(--green) 40%, var(--line));
+  color: var(--green);
+}
+
+.item.done .itemTitle {
+  color: var(--fg);
+}
+
+.item.pending .marker {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.item.error .marker {
+  background: color-mix(in oklch, var(--accent-deep) 18%, var(--surface));
+  border-color: color-mix(in oklch, var(--accent-deep) 40%, var(--line));
+  color: var(--accent-deep);
+}
+
+.item.error .itemTitle {
+  color: var(--accent-deep);
+}

@@ -1,4 +1,4 @@
-import ChatShell from './features/chat/ChatShell'
+import { ChatShell } from './features/chat/ChatShell'
 
 function App() {
   return <ChatShell />

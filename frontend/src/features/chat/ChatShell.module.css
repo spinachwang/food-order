@@ -1,0 +1,52 @@
+.shell {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.recoWrap {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 24px;
+  max-width: 1280px;
+  margin: 0 auto 32px;
+  padding: 0 28px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.recoMain {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.altGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.altHeading {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+
+@media (max-width: 1080px) {
+  .recoWrap {
+    grid-template-columns: 1fr;
+  }
+}
