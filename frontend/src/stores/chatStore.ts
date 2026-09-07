@@ -22,6 +22,9 @@ import type {
 } from '../features/chat/types'
 import { DEFAULT_UI_PREFS } from '../features/chat/types'
 
+export { DEFAULT_UI_PREFS }
+export type { UiPreferences }
+
 export type ChatStatus = 'idle' | 'streaming' | 'done' | 'error'
 
 interface ChatStore {
@@ -70,7 +73,7 @@ interface ChatStore {
   setSessionId: (id: string | null) => void
 }
 
-const DEFAULT_ADDRESS = '上海 · 静安嘉里中心 B2'
+export const DEFAULT_ADDRESS = '上海 · 静安嘉里中心 B2'
 let stepCounter = 0
 const nextMarker = () => ++stepCounter
 
