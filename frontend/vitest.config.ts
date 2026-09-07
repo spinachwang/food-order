@@ -8,5 +8,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // F050: E2E (Playwright) 走 .spec.ts, 不归 Vitest 管
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**'],
   },
 })
