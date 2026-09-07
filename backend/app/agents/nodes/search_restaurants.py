@@ -7,8 +7,8 @@
 cuisine_id 餐厅列表为空, summary 跳过"). 整个 Node 不会抛错给上层.
 
 输入位置: `state["location_override"]` (API 显式传) 优先, 否则用
-`state["user_preferences"]["default_location"]`. 锚点为空时按"国贸"
-兜底, 与现有 dev_route.py 习惯保持一致.
+`state["user_preferences"]["default_location"]`. 锚点为空 / 是中文地名
+(高德 `place/around` 不收, 会回 `INVALID_PARAMS`) 时按国贸坐标兜底.
 """
 
 from __future__ import annotations
@@ -27,16 +27,35 @@ _DEFAULT_LOCATION = "116.433840,39.908740"  # 国贸 (与 dev_route.py 习惯一
 _DEFAULT_LOCATION_LABEL = "国贸"
 
 
+def _is_coord(value: str) -> bool:
+    """是否 `lng,lat` 数字坐标 (例如 `116.43,39.91`). 高德 `place/around`
+    必须传坐标, 中文地名会触发 `infocode=20000 INVALID_PARAMS`."""
+    if "," not in value:
+        return False
+    left, _, right = value.partition(",")
+    try:
+        float(left.strip())
+        float(right.strip())
+    except ValueError:
+        return False
+    return True
+
+
 def _resolve_location(state: AgentState) -> str:
-    """解析锚点: 显式 override > 用户偏好 default_location > 国贸兜底."""
+    """解析锚点: 显式 override > 用户偏好 default_location > 国贸兜底.
+
+    `default_location` 可能是中文地名 ("国贸") 也可能是坐标 ("116.43,39.91").
+    `place/around` 仅接受坐标; 非坐标回落到 `_DEFAULT_LOCATION`. 这样老用户
+    的中文偏好不会触发 INVALID_PARAMS.
+    """
     override = state.get("location_override")
-    if isinstance(override, str) and override.strip():
+    if isinstance(override, str) and override.strip() and _is_coord(override):
         return override.strip()
     prefs = state.get("user_preferences")
     if prefs is not None:
         default_loc = prefs.get("default_location")
-        if isinstance(default_loc, str) and default_loc.strip():
-            return default_loc.strip()
+        if isinstance(default_loc, str) and _is_coord(default_loc):
+            return default_loc
     return _DEFAULT_LOCATION
 
 

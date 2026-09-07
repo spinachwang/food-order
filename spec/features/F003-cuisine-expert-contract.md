@@ -1,6 +1,6 @@
 # F003 — 菜系专家通用契约
 
-> **状态**：[x] 已完成（M1 Phase 1 — GREEN）
+> **状态**：[x] 已完成（M1 Phase 2 — 2026-09-07 base.run() 真链路接通，655 全量单测通过）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：F001（用户偏好）、F030（餐厅搜索）
 > **被依赖**：F010–F024（14 个菜系专家）、F004（整体工作流）
@@ -63,7 +63,14 @@ class BaseCuisineExpert(ABC):
 
     @abstractmethod
     async def run(self, state: AgentState) -> dict[str, object]:
-        """LangGraph Node 入口；Phase 1 抛 NotImplementedError（F004 范围）。"""
+        """LangGraph Node 入口.
+
+        Phase 1 stub: 抛 NotImplementedError（F004 在 wiring 测试用 mock 覆盖）.
+        Phase 2 (2026-09-07): `BaseCuisineExpert` 默认实现已就位 — 调真实 LLM
+        (`LLMProvider.complete`), parse_output → CuisineExpertOutput. 14 个菜系
+        一律走 base.run(); 子类只在需要追加菜系专属 prompt shaping 时 override.
+        LLM 失败 / 超时 → 返回 `_fallback_output` (keywords=[], conclusion="暂不可推荐").
+        """
         ...
 ```
 

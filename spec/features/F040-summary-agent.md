@@ -1,6 +1,6 @@
 # F040 — 总结与推荐 Agent
 
-> **状态**：[ ] 未开始
+> **状态**：[x] 已完成（2026-09-07 实现，27 单测 + 639 全量单测 + 6 场景冒烟通过）
 > **所属里程碑**：M1 Agent MVP
 > **依赖**：[F001 偏好](F001-user-preferences.md)、[F003 菜系专家契约](F003-cuisine-expert-contract.md)、[F031 天气](F031-amap-weather.md)
 > **被依赖**：[F004 整体工作流](F004-langgraph-workflow.md)
@@ -11,16 +11,16 @@
 
 ## 2. 验收清单
 
-- [ ] 输入：菜系专家输出（≥0 个）+ 天气 + 偏好
-- [ ] 输出：`Recommendation` 对象（headline / restaurant_id / order_takeout / reason / alternatives）
-- [ ] 决策规则（基于天气 + 距离）决定是否外卖：
+- [x] 输入：菜系专家输出（≥0 个）+ 天气 + 偏好
+- [x] 输出：`Recommendation` 对象（headline / restaurant_id / order_takeout / reason / alternatives）
+- [x] 决策规则（基于天气 + 距离）决定是否外卖：
   - 天气恶劣（雨 / 雪 / 沙尘 / 风 ≥6 级）或温度 ≥35℃ / ≤-5℃ → 倾向 `order_takeout=true`
   - 餐厅距离 ≤500m 且天气良好 → 倾向 `order_takeout=false`
   - 其他情况 → 默认 `order_takeout=true`（中庸之选）
-- [ ] 备选 ≥2 个（fallback 方案）
-- [ ] 输出 `reason` 含可解释依据（天气 / 距离 / 偏好 / 评分）
-- [ ] 全部菜系专家失败时降级输出："今天没合适推荐，换个口味吧"
-- [ ] 单测覆盖所有决策分支
+- [x] 备选 ≥2 个（fallback 方案）
+- [x] 输出 `reason` 含可解释依据（天气 / 距离 / 偏好 / 评分）
+- [x] 全部菜系专家失败时降级输出："今天没合适推荐，换个口味吧"
+- [x] 单测覆盖所有决策分支
 
 ## 3. 输入 / 输出
 
@@ -136,6 +136,10 @@ def score_restaurant(
 - 不新增表 / 接口
 - 新增实现：`backend/app/agents/summary.py`
 - 新增打分函数：`backend/app/agents/scoring.py`
+- 新增 LLM prompt：`backend/app/agents/prompts/summary.py`
+- 重写 Node：`backend/app/agents/nodes/summarize.py`
+- 新增单测：`backend/tests/unit/test_summary_agent.py`
+- 新增冒烟脚本：`scripts/summary-agent.py`
 
 ## 7. 错误码
 

@@ -15,6 +15,12 @@ ignore = ["E501"]
 # Functional TypedDict syntax is clearer for NotRequired fields.
 # F002 扩展的 RoutingLogEntry / RouterOutput 含中文注释，统一加 RUF00x 忽略。
 "app/agents/state.py" = ["UP013", "RUF001", "RUF002", "RUF003"]
+# F040 总结 Agent 的 prompt 模板与编排模块含大量中文 docstring / 注释，全角
+# 标点与 spec（F040 §3.3 / §5 / §7）口径一致。
+"app/agents/prompts/*.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/scoring.py" = ["RUF001", "RUF002", "RUF003"]
+"app/agents/summary.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/unit/test_summary_agent.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 # Depends(...) defaults are the canonical FastAPI pattern.
 "app/api/**/*.py" = ["B008"]
 # SessionLocal mirrors SQLAlchemy idiom.

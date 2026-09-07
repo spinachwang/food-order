@@ -53,6 +53,15 @@ summarize，把 SSE 事件 + 最终 state 以 JSON dump 到 stdout。
 
 from __future__ import annotations
 
+# Windows 默认 stdout 是 gbk, 中文会触发 UnicodeEncodeError. 强制 utf-8 让
+# `print(json.dumps(..., ensure_ascii=False))` 能输出菜系名/餐厅名等中文.
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # 允许从仓库根目录直接 `python scripts/langgraph_workflow.py "..."` 而不需要 PYTHONPATH。
 # backend/ 与 scripts/ 同级，把 backend/ 加到 sys.path 让 `from app.xxx` 工作。
 import argparse
@@ -60,26 +69,29 @@ import asyncio
 import contextlib
 import json
 import random
-import sys
 import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
-from app.agents.cuisines import CUISINE_REGISTRY  # noqa: E402
-from app.agents.graph import GRAPH_NODE_NAMES, build_graph  # noqa: E402
-from app.agents.llm.base import LLMProvider  # noqa: E402
-from app.agents.llm.factory import get_llm_provider  # noqa: E402
-from app.agents.llm.testing import FakeLLMProvider  # noqa: E402
-from app.agents.state import AgentState, CuisineExpertOutput, UserPreferencesDict  # noqa: E402
-from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT  # noqa: E402
-from app.core.logging import setup_logging  # noqa: E402
-from app.core.request_id import new_request_id, set_request_id  # noqa: E402
+from app.agents.cuisines import CUISINE_REGISTRY
+from app.agents.graph import GRAPH_NODE_NAMES, build_graph
+from app.agents.llm.base import LLMProvider
+from app.agents.llm.factory import get_llm_provider
+from app.agents.llm.testing import FakeLLMProvider
+from app.agents.state import (
+    AgentState,
+    CuisineExpertOutput,
+    UserPreferencesDict,
+)
+from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
+from app.core.logging import setup_logging
+from app.core.request_id import new_request_id, set_request_id
 
 # Wire stdlib logging so every node / LLM call in this run logs to stderr
 # with the same `rid=...` tag the FastAPI entry would set. Mirrors the
@@ -167,7 +179,9 @@ def _build_prefs(
         "allergies": list(allergies),
         "spice_tolerance": 2,
         "temperature_preference": "room",
-        "default_location": "国贸",
+        # 高德天气 API 只认城市名/adcode, 不认坐标/小区名. 生产里 user 填的
+        # 应该是城市级 (e.g. "北京" / "110000"). 沿用 dev_route.py 习惯.
+        "default_location": "北京",
         "budget_lunch_min": Decimal("30.00"),
         "budget_lunch_max": Decimal("80.00"),
     }
@@ -277,6 +291,111 @@ def _patch_all_cuisines(fail_cuisine: str | None):
                 )
             else:
                 cm.return_value = _canned_cuisine_output(cid)
+        yield
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 后端端到端 (2026-09-07)：mock 高德天气 + 餐厅搜索
+# ---------------------------------------------------------------------------
+
+
+def _canned_weather() -> dict[str, Any]:
+    """F031 WeatherInfo 形状 + 决策矩阵中庸档 (sunny 22℃, 无风)."""
+    return {
+        "location": "116.433840,39.908740",
+        "province": "北京市",
+        "city": "北京市",
+        "adcode": "110000",
+        "temperature_celsius": 22.0,
+        "condition": "sunny",
+        "humidity_percent": 50,
+        "wind_direction": "南",
+        "wind_level": 2,
+        "precipitation_probability": 0.05,
+        "forecast_3h": [],
+        "fetched_at": "2026-09-07T12:00:00+00:00",
+    }
+
+
+def _canned_restaurants(cuisine_id: str) -> list[dict[str, Any]]:
+    """F030 Restaurant 形状 + 2 个不同距离/评分的占位餐厅."""
+    expert = CUISINE_REGISTRY.get(cuisine_id)
+    display = getattr(expert, "display_name", cuisine_id) if expert else cuisine_id
+    return [
+        {
+            "poi_id": f"FAKE-{cuisine_id}-001",
+            "name": f"示例{display}馆 A",
+            "address": "北京市朝阳区国贸",
+            "location": "116.433840,39.908740",
+            "distance_meters": 380,
+            "rating": 4.7,
+            "avg_price": 65.0,
+            "cuisine_tags": [cuisine_id],
+            "business_hours": "10:00-22:00",
+            "phone": "010-12345678",
+        },
+        {
+            "poi_id": f"FAKE-{cuisine_id}-002",
+            "name": f"示例{display}馆 B",
+            "address": "北京市朝阳区三里屯",
+            "location": "116.456000,39.935000",
+            "distance_meters": 1200,
+            "rating": 4.3,
+            "avg_price": 55.0,
+            "cuisine_tags": [cuisine_id],
+            "business_hours": "11:00-21:00",
+            "phone": "010-87654321",
+        },
+    ]
+
+
+@contextlib.contextmanager
+def _patch_external_services(
+    *,
+    skip_weather: bool,
+    fake_restaurants: bool,
+):
+    """Mock 高德 (F030 + F031) 让 summary agent 拿到真实候选.
+
+    - skip_weather=True → `amap_get_weather` 返回 sunny 22°C canned
+    - fake_restaurants=True → `amap_search_restaurants` 返回 2 家 canned
+      (按 keywords 推断 cuisine_id, 让 summary 仍能映射回对应菜系).
+    """
+    with contextlib.ExitStack() as stack:
+        if skip_weather:
+            stack.enter_context(
+                patch(
+                    "app.agents.nodes.fetch_weather.amap_get_weather",
+                    AsyncMock(return_value=_canned_weather()),
+                )
+            )
+        if fake_restaurants:
+            from app.agents.cuisines import CUISINE_REGISTRY as _REG
+
+            async def _fake_search(*args: Any, **kwargs: Any) -> dict[str, Any]:
+                # search_restaurants 调 amap_search_restaurants(keywords=..., location=...)
+                # amap_search_restaurants 真实返回 `{"restaurants": [...], "partial": ..., "raw_count": ...}`
+                # 用 keywords[0] 反查 cuisine_id (L1 cache key 命名约定)
+                keywords = kwargs.get("keywords") or []
+                cid = ""
+                for candidate in keywords:
+                    if candidate in _REG:
+                        cid = candidate
+                        break
+                if not cid:
+                    cid = "sichuan"  # 兜底
+                return {
+                    "restaurants": _canned_restaurants(cid),
+                    "partial": False,
+                    "raw_count": 2,
+                }
+
+            stack.enter_context(
+                patch(
+                    "app.agents.nodes.search_restaurants.amap_search_restaurants",
+                    side_effect=_fake_search,
+                )
+            )
         yield
 
 
@@ -434,7 +553,11 @@ async def _run(args: argparse.Namespace, prefs: UserPreferencesDict, provider: L
     compiled = build_graph(checkpointer=args.checkpointer)
 
     started = time.monotonic()
-    with patch("app.agents.main_router.get_llm_provider", return_value=provider):
+    with patch("app.agents.main_router.get_llm_provider", return_value=provider), \
+         _patch_external_services(
+             skip_weather=args.skip_fetch_weather,
+             fake_restaurants=args.fake_restaurants,
+         ):
         # Run #1: ainvoke 拿完整 final_state（含 errors / routing_log 等 SSE 不发的字段）。
         final_state = await compiled.ainvoke(initial_state, config=config)
         # Run #2: astream_events 拿事件时间线（spec §4 契约）。
@@ -536,6 +659,16 @@ def main(argv: list[str] | None = None) -> int:
         help="指定 cuisine_id 让其 expert 抛 RuntimeError（验证 §3.4 容错）",
     )
     parser.add_argument(
+        "--skip-fetch-weather",
+        action="store_true",
+        help="用 canned sunny 22°C 替换高德天气调用（Phase 2 后端端到端，离线可跑）",
+    )
+    parser.add_argument(
+        "--fake-restaurants",
+        action="store_true",
+        help="为每个选中菜系注入 2 个 canned 餐厅（让 summary agent 拿到候选）",
+    )
+    parser.add_argument(
         "--max-elapsed-ms",
         type=int,
         default=None,
@@ -555,17 +688,14 @@ def main(argv: list[str] | None = None) -> int:
     provider, _mode = _make_provider(args.llm_response, args.all_fake)
     rng = _build_rng(args.seed)
 
-    try:
-        with _patch_all_cuisines(args.fail_cuisine):
-            try:
-                result = asyncio.run(_run(args, prefs, provider, rng))
-            finally:
-                # 真实 provider 持有 httpx.AsyncClient；显式关闭避免泄漏。
-                if hasattr(provider, "aclose"):
-                    asyncio.run(provider.aclose())
-    finally:
-        # `with` ExitStack 已经自动 close，但这里留个兜底可观察点。
-        pass
+    # provider 的 httpx.AsyncClient 绑定到 LangGraph 主 loop. 进程退出时
+    # GC 回收连接即可, 不显式 `aclose()` 避免 Event loop is closed.
+    with _patch_all_cuisines(args.fail_cuisine), \
+         _patch_external_services(
+             skip_weather=args.skip_fetch_weather,
+             fake_restaurants=args.fake_restaurants,
+         ):
+        result = asyncio.run(_run(args, prefs, provider, rng))
 
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 

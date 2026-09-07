@@ -13,8 +13,9 @@ which always populates `user_id` / `user_message` / `user_preferences`.
 """
 from __future__ import annotations
 
+import operator
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 # `typing_extensions.TypedDict` is required (vs `typing.TypedDict`) because
 # Pydantic v2 — used by LangGraph 0.2.x to introspect the schema — only
@@ -99,7 +100,12 @@ AgentState = TypedDict(
         # F040 — final Recommendation payload or None if no upstream data.
         "recommendation": dict[str, object] | None,
         # Global error sink — every Node contributes via this list.
-        "errors": list[dict[str, str]],
+        #
+        # `Annotated[..., operator.add]` 让 LangGraph 0.2.x 在并行 Node
+        # (例如 `search_restaurants` + `fetch_weather` 同时写 errors) 时把
+        # 多个 list 自动拼接, 而不是抛 `InvalidUpdateError`. 默认 reducer
+        # 是 "replace", 并行写同一 key 直接冲突.
+        "errors": Annotated[list[dict[str, str]], operator.add],
     },
     total=False,
 )

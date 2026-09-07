@@ -61,12 +61,76 @@ class TestBaseContract:
         assert expert.llm_model == "MiniMax-M3"
         assert isinstance(expert.prompt_fragment, str)
 
-    def test_run_raises_not_implemented_in_phase_1(self) -> None:
-        import asyncio
+    def test_run_calls_llm_and_returns_parsed_output(self) -> None:
+        """F003 Phase 2 — base class.run() 现在调真实 LLM (2026-09-07 落地).
 
-        expert = SichuanExpert()
-        with pytest.raises(NotImplementedError):
-            asyncio.run(expert.run({"user_id": "u", "user_message": "hi"}))
+        用 `FakeLLMProvider` 注入回包, 验证:
+        - prompt 含菜系显示名 + 用户消息 + JSON schema 提示
+        - parse_output 把 LLM 回包 → CuisineExpertOutput
+        - cuisine_id 由 expert.cuisine_id 提供, 不依赖 LLM 自报
+        """
+        import asyncio
+        from unittest.mock import patch
+
+        from app.agents.llm.testing import FakeLLMProvider
+
+        fake = FakeLLMProvider()
+        fake.set_response({
+            "content": (
+                '{"conclusion":"今天适合川菜",'
+                '"keywords":["川菜","麻婆豆腐"],'
+                '"matched_allergies":[]}'
+            ),
+            "model": "fake",
+            "usage": None,
+        })
+        # base.py 用了 `from app.agents.llm.factory import get_llm_provider`,
+        # 所以 `app.agents.cuisines.base.get_llm_provider` 才是真正被查找的位置
+        with patch("app.agents.cuisines.base.get_llm_provider", return_value=fake):
+            result = asyncio.run(
+                SichuanExpert().run({
+                    "user_id": "u",
+                    "user_message": "想吃辣",
+                    "user_preferences": _input()["user_preferences"],
+                })
+            )
+
+        assert result["cuisine_id"] == "sichuan"
+        assert "川菜" in result["conclusion"]
+        assert result["keywords"] == ["川菜", "麻婆豆腐"]
+        # 验证 prompt 被实际发送
+        assert fake.calls, "LLM 没被调用"
+        prompt_text = fake.calls[0]["messages"][1]["content"]
+        assert "想吃辣" in prompt_text
+        assert "川菜" in prompt_text  # cuisine_display_name
+
+    def test_run_llm_error_falls_back(self) -> None:
+        """F003 Phase 2 — LLM 抛错时 run() 不抛, 返回 fallback keywords=[]."""
+        import asyncio
+        from unittest.mock import patch
+
+        from app.agents.llm.testing import FakeLLMProvider
+        from app.core.exceptions import LLMRateLimitError
+
+        class BoomProvider(FakeLLMProvider):
+            async def complete(self, request):  # type: ignore[override]
+                raise LLMRateLimitError("boom", details={})
+
+        with patch(
+            "app.agents.cuisines.base.get_llm_provider",
+            return_value=BoomProvider(),
+        ):
+            result = asyncio.run(
+                SichuanExpert().run({
+                    "user_id": "u",
+                    "user_message": "hi",
+                    "user_preferences": _input()["user_preferences"],
+                })
+            )
+
+        assert result["cuisine_id"] == "sichuan"
+        assert result["keywords"] == []  # fallback
+        assert result["conclusion"] == "暂不可推荐"
 
     def test_parse_output_happy_path(self) -> None:
         expert = SichuanExpert()
