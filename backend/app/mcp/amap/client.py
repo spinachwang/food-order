@@ -34,6 +34,7 @@ import httpx
 from app.core.config import Settings, get_settings
 from app.core.exceptions import (
     AmapInvalidKeyError,
+    AmapLocationInvalidError,
     AmapNetworkError,
     AmapQuotaExceededError,
 )
@@ -44,6 +45,8 @@ _DEFAULT_BASE_URL = "https://restapi.amap.com"
 # 高德 body-level 错误码 (见 https://lbs.amap.com/api/webservice/guide/tools/info)
 _INVALID_KEY_INFOCODES = {"10001", "10002", "10003", "10004", "10005", "10007", "10008"}
 _QUOTA_INFOCODES = {"10044", "10045", "10046", "10047", "10048"}
+# F031 §5: 城市/区域编码不存在 (e.g. infocode=20001) → 调用方应用 IP 城市兜底
+_LOCATION_INVALID_INFOCODES = {"20001", "20002", "20003", "20010", "20011", "20012"}
 # 重试退避基础秒数（与 LLM provider 保持一致）
 _BACKOFF_BASE_SECONDS = 0.3
 
@@ -239,6 +242,13 @@ class AmapClient:
         if infocode in _QUOTA_INFOCODES or "CUQPS_HAS_EXCEEDED" in str(payload.get("info", "")):
             raise AmapQuotaExceededError(
                 f"高德 MCP 配额耗尽 (infocode={infocode})",
+                details={"info": payload.get("info"), "path": path},
+            )
+
+        if infocode in _LOCATION_INVALID_INFOCODES:
+            # F031 §5: AMAP_LOCATION_INVALID — 调用方应使用 IP 城市兜底
+            raise AmapLocationInvalidError(
+                f"高德 MCP 无法解析 location (infocode={infocode})",
                 details={"info": payload.get("info"), "path": path},
             )
 

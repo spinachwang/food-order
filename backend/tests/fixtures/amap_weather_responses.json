@@ -1,0 +1,217 @@
+{
+  "_comment": "Mock 样本 — 用于 backend/tests/unit/test_amap_weather.py 与 scripts/amap-weather.py 的 respx mock. 字段格式严格遵循高德『天气查询』v3 API (https://restapi.amap.com/v3/weather/weatherInfo) 真实响应 schema. extensions=base 时 lives[] 返回实况; extensions=all 时 forecasts[].casts[] 返回未来几天预报. 修改本文件前请同步 spec/features/F031-amap-weather.md §3.2 字段定义.",
+
+  "sunny_base": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": [
+      {
+        "province": "北京",
+        "city": "北京市",
+        "adcode": "110000",
+        "weather": "晴",
+        "temperature": "23",
+        "temperature_float": "23.0",
+        "winddirection": "西南",
+        "windpower": "3",
+        "humidity": "38",
+        "humidity_float": "38.0",
+        "reporttime": "2026-09-07 14:30:00"
+      }
+    ]
+  },
+
+  "rainy_base": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": [
+      {
+        "province": "上海",
+        "city": "上海市",
+        "adcode": "310000",
+        "weather": "中雨",
+        "temperature": "18",
+        "temperature_float": "18.5",
+        "winddirection": "东",
+        "windpower": "5",
+        "humidity": "92",
+        "humidity_float": "92.0",
+        "reporttime": "2026-09-07 14:30:00"
+      }
+    ]
+  },
+
+  "snowy_base": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": [
+      {
+        "province": "黑龙江",
+        "city": "哈尔滨市",
+        "adcode": "230100",
+        "weather": "小雪",
+        "temperature": "-5",
+        "temperature_float": "-5.0",
+        "winddirection": "北",
+        "windpower": "4",
+        "humidity": "78",
+        "humidity_float": "78.0",
+        "reporttime": "2026-09-07 14:30:00"
+      }
+    ]
+  },
+
+  "cloudy_base": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": [
+      {
+        "province": "广东",
+        "city": "深圳市",
+        "adcode": "440300",
+        "weather": "多云",
+        "temperature": "28",
+        "temperature_float": "28.0",
+        "winddirection": "东南",
+        "windpower": "2",
+        "humidity": "65",
+        "humidity_float": "65.0",
+        "reporttime": "2026-09-07 14:30:00"
+      }
+    ]
+  },
+
+  "foggy_base": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": [
+      {
+        "province": "江苏",
+        "city": "南京市",
+        "adcode": "320100",
+        "weather": "雾",
+        "temperature": "12",
+        "temperature_float": "12.0",
+        "winddirection": "东",
+        "windpower": "1",
+        "humidity": "96",
+        "humidity_float": "96.0",
+        "reporttime": "2026-09-07 06:00:00"
+      }
+    ]
+  },
+
+  "dust_base": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": [
+      {
+        "province": "北京",
+        "city": "北京市",
+        "adcode": "110000",
+        "weather": "霾",
+        "temperature": "30",
+        "temperature_float": "30.0",
+        "winddirection": "南",
+        "windpower": "2",
+        "humidity": "55",
+        "humidity_float": "55.0",
+        "reporttime": "2026-09-07 14:30:00"
+      }
+    ]
+  },
+
+  "forecast_all": {
+    "status": "1",
+    "count": "1",
+    "info": "OK",
+    "infocode": "10000",
+    "forecasts": [
+      {
+        "city": "北京市",
+        "adcode": "110000",
+        "province": "北京",
+        "reporttime": "2026-09-07 14:30:00",
+        "casts": [
+          {
+            "date": "2026-09-07",
+            "week": "1",
+            "dayweather": "晴",
+            "nightweather": "多云",
+            "daytemp": "28",
+            "nighttemp": "18",
+            "daywind": "西南",
+            "nightwind": "北",
+            "daypower": "3",
+            "nightpower": "2"
+          },
+          {
+            "date": "2026-09-08",
+            "week": "2",
+            "dayweather": "多云",
+            "nightweather": "雨",
+            "daytemp": "26",
+            "nighttemp": "17",
+            "daywind": "东",
+            "nightwind": "东",
+            "daypower": "3",
+            "nightpower": "4"
+          },
+          {
+            "date": "2026-09-09",
+            "week": "3",
+            "dayweather": "雨",
+            "nightweather": "雨",
+            "daytemp": "22",
+            "nighttemp": "16",
+            "daywind": "东",
+            "nightwind": "东北",
+            "daypower": "5",
+            "nightpower": "5"
+          }
+        ]
+      }
+    ]
+  },
+
+  "invalid_key": {
+    "status": "0",
+    "count": "0",
+    "info": "INVALID_USER_KEY",
+    "infocode": "10001"
+  },
+
+  "quota_exceeded": {
+    "status": "0",
+    "count": "0",
+    "info": "CUQPS_HAS_EXCEEDED_THE_LIMIT",
+    "infocode": "10044"
+  },
+
+  "location_invalid": {
+    "status": "0",
+    "count": "0",
+    "info": "QUERY_NOT_FOUND",
+    "infocode": "20001"
+  },
+
+  "empty_lives": {
+    "status": "1",
+    "count": "0",
+    "info": "OK",
+    "infocode": "10000",
+    "lives": []
+  }
+}

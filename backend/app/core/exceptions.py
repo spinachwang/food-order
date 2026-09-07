@@ -141,6 +141,16 @@ class AmapNetworkError(AmapError):
     http_status = 504
 
 
+class AmapLocationInvalidError(AmapError):
+    """AMAP 无法解析 location（地标 / adcode 不存在）。
+
+    F031 §5: 调用方（summary agent）应使用 IP 城市兜底，而非直接抛给上游。
+    """
+
+    code = "AMAP_LOCATION_INVALID"
+    http_status = 502
+
+
 # ----- Exception handlers -----
 
 
