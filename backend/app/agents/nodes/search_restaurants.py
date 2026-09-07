@@ -7,8 +7,10 @@
 cuisine_id 餐厅列表为空, summary 跳过"). 整个 Node 不会抛错给上层.
 
 输入位置: `state["location_override"]` (API 显式传) 优先, 否则用
-`state["user_preferences"]["default_location"]`. 锚点为空 / 是中文地名
-(高德 `place/around` 不收, 会回 `INVALID_PARAMS`) 时按国贸坐标兜底.
+`state["user_preferences"]["default_location"]`. 位置格式约束见 F001 §3.5
++ F030 §6.1: 本 Node 调用 `place/around` 仅收 `lng,lat` 坐标, 收到 adcode /
+城市名 / 中文地标时统一 fallback 到国贸坐标并 WARN log (防止 silent fallback
+再次掩盖 bug).
 """
 
 from __future__ import annotations
@@ -19,17 +21,22 @@ from typing import cast
 
 from app.agents.state import AgentState
 from app.core.exceptions import AmapError
+from app.core.request_id import get_request_id
 from app.mcp.amap.restaurant import amap_search_restaurants
 
 logger = logging.getLogger(__name__)
 
+# 注: F001 §3.5 兜底值在城市级是 `"110000"` (adcode). 本 Node 调
+# `place/around` 必须收 `lng,lat`, 所以内部用坐标形式; fetch_weather.py 用
+# adcode 形式. 两者都指向北京国贸, 语义一致.
 _DEFAULT_LOCATION = "116.433840,39.908740"  # 国贸 (与 dev_route.py 习惯一致)
 _DEFAULT_LOCATION_LABEL = "国贸"
 
 
 def _is_coord(value: str) -> bool:
     """是否 `lng,lat` 数字坐标 (例如 `116.43,39.91`). 高德 `place/around`
-    必须传坐标, 中文地名会触发 `infocode=20000 INVALID_PARAMS`."""
+    必须传坐标, 其他格式 (adcode / 城市名 / 中文地标) 会触发
+    `infocode=20000 INVALID_PARAMS`."""
     if "," not in value:
         return False
     left, _, right = value.partition(",")
@@ -42,20 +49,35 @@ def _is_coord(value: str) -> bool:
 
 
 def _resolve_location(state: AgentState) -> str:
-    """解析锚点: 显式 override > 用户偏好 default_location > 国贸兜底.
+    """解析锚点: 显式 override > 用户偏好 default_location > 国贸坐标兜底.
 
-    `default_location` 可能是中文地名 ("国贸") 也可能是坐标 ("116.43,39.91").
-    `place/around` 仅接受坐标; 非坐标回落到 `_DEFAULT_LOCATION`. 这样老用户
-    的中文偏好不会触发 INVALID_PARAMS.
+    F030 §6.1: 仅放行 `lng,lat` 坐标; adcode / 城市名 / 中文地标 fallback
+    到 `_DEFAULT_LOCATION` 并 WARN log (含 `user_id` 与原始值, 便于追溯
+    silent fallback).
     """
+    rid = get_request_id() or "-"
+    user_id = str(state.get("user_id") or "-")
+
     override = state.get("location_override")
-    if isinstance(override, str) and override.strip() and _is_coord(override):
-        return override.strip()
+    if isinstance(override, str) and override.strip():
+        v = override.strip()
+        if _is_coord(v):
+            return v
+        logger.warning(
+            "search_restaurants location_override 非坐标, fallback rid=%s user=%s override=%s",
+            rid, user_id, v,
+        )
     prefs = state.get("user_preferences")
     if prefs is not None:
         default_loc = prefs.get("default_location")
-        if isinstance(default_loc, str) and _is_coord(default_loc):
-            return default_loc
+        if isinstance(default_loc, str) and default_loc.strip():
+            v = default_loc.strip()
+            if _is_coord(v):
+                return v
+            logger.warning(
+                "search_restaurants prefs.default_location 非坐标, fallback rid=%s user=%s location=%s",
+                rid, user_id, v,
+            )
     return _DEFAULT_LOCATION
 
 
