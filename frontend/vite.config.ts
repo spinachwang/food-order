@@ -8,5 +8,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // F050 §4.1: 前端 fetch('/api/v1/...') 由 Vite dev server 代理到后端 :8000,
+    // 避免 CORS 配置。生产构建由 nginx/反代承担同源责任。
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })

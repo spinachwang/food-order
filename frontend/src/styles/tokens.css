@@ -1,0 +1,43 @@
+/*
+ * F050 §2.2 设计系统基线 — OKLch 色 / 圆角 / 阴影 / 字体。
+ *
+ * 与 prototype/index.html :root (行 14-44) 完全一致 — SSOT 原则,前端不另设 token。
+ * 唯一例外: prototype 中 --gold 实际未被使用, 这里保留供 .price 徽章 (spec §2.1)。
+ */
+:root {
+  /* 色板 — OKLch (餐巾纸 / 油墨 / 暖橙 / 健康绿 / 价格金) */
+  --bg: oklch(98% 0.012 80);             /* 餐巾纸奶白 */
+  --surface: oklch(100% 0 0);            /* 卡片纯白 */
+  --surface-warm: oklch(94% 0.022 75);   /* 浅米托盘 */
+  --fg: oklch(20% 0.018 50);             /* 油墨黑 */
+  --fg-soft: oklch(38% 0.022 55);
+  --muted: oklch(55% 0.015 60);
+  --line: oklch(89% 0.018 70);
+  --line-strong: oklch(78% 0.028 65);
+  --accent: oklch(62% 0.20 38);          /* 暖橙 #E55934 系 */
+  --accent-deep: oklch(50% 0.18 36);
+  --accent-soft: oklch(92% 0.06 50);
+  --green: oklch(58% 0.13 145);          /* 健康标签 */
+  --gold: oklch(72% 0.13 80);            /* 价格徽章 (保留供 .price 用) */
+
+  /* 字体三套 — Fraunces / Inter / JetBrains Mono */
+  --f-display: "Fraunces", "Iowan Old Style", "Charter", "Songti SC", serif;
+  --f-body: "Inter", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* 圆角 */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  /* 阴影 — 轻 / 中 / 暖橙浮起(仅主 CTA) */
+  --shadow-1: 0 1px 2px rgba(40, 25, 12, 0.04), 0 2px 8px rgba(40, 25, 12, 0.04);
+  --shadow-2: 0 2px 4px rgba(40, 25, 12, 0.05), 0 12px 28px rgba(40, 25, 12, 0.08);
+  --shadow-pop: 0 4px 8px rgba(229, 89, 52, 0.18), 0 18px 40px rgba(229, 89, 52, 0.16);
+}
+
+/* spec §2.5 响应式断点 — 复用 prototype 行 699-721 */
+@media (prefers-color-scheme: dark) {
+  /* F050 §8 #10: M1 仅亮色 — 暗色 token 延后到 M2 */
+}

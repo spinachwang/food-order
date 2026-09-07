@@ -1,0 +1,39 @@
+/*
+ * F050 — 复用 / 新增动画
+ * 源自 prototype 行 195-198 (pulse), 增加 toast 入场。
+ */
+
+/* prototype — 状态点脉冲 (hero-meta / reco-status) */
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--green) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--green) 0%, transparent);
+  }
+}
+
+/* Toast 入场 — opacity + translateY */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ThinkingLog step 进场 — 暂留, Phase D 接入 */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
