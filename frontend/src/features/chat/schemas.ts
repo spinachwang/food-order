@@ -45,8 +45,71 @@ const allergiesSchema = z.array(allergySchema).max(ALLERGY_VALUES.length)
 /** spice_tolerance ∈ [0, 3] (F001 §3.2) */
 const spiceToleranceSchema = z.number().int().min(0).max(3)
 
-/** default_location: string | null */
-const defaultLocationSchema = z.string().min(1).max(200).nullable()
+/**
+ * F051 §3 — StructuredAddress 校验规则镜像后端
+ * `backend/app/schemas/structured_address.py`:
+ * - 必填: province / province_adcode / city / city_adcode
+ * - adcode 必须 6 位数字 (正则 ^\d{6}$)
+ * - poi_id 必须 20-32 位大写字母+数字 (正则 ^[A-Z0-9]{20,32}$)
+ * - 名称字段长度 1-32, 仅含 中文 / 字母 / 数字 / 空格 / `·`
+ * - door_no 长度 ≤ 64
+ * - district 与 district_adcode 必须同生同灭 (cross-field, 用 refine)
+ */
+const _ADCODE_PATTERN = /^\d{6}$/
+const _POI_ID_PATTERN = /^[A-Z0-9]{20,32}$/
+const _NAME_PATTERN = /^[一-龥一-鿿A-Za-z0-9 ·]{1,32}$/
+const _NAME_MAX = 32
+const _DOOR_NO_MAX = 64
+
+const _adcodeFieldSchema = z
+  .string()
+  .regex(_ADCODE_PATTERN, 'adcode 必须是 6 位数字')
+const _poiIdFieldSchema = z
+  .string()
+  .regex(_POI_ID_PATTERN, 'poi_id 必须是 20-32 位大写字母+数字')
+const _nameFieldSchema = z
+  .string()
+  .max(_NAME_MAX, `名称字段长度必须 ≤ ${_NAME_MAX}`)
+  .regex(
+    _NAME_PATTERN,
+    '名称字段仅含中文 / 字母 / 数字 / 空格 / 中点 ·',
+  )
+
+/**
+ * 可选字段：缺省视为 null，与后端 `Optional[...] = None` 行为一致。
+ * 用 `.default(null)` 让 zod 输出类型保持 `T | null`（required but nullable），
+ * 而不是 `T | null | undefined`，与 `StructuredAddress` interface 对齐。
+ */
+const _nullableAdcode = _adcodeFieldSchema.nullable().default(null)
+const _nullablePoiId = _poiIdFieldSchema.nullable().default(null)
+const _nullableName = _nameFieldSchema.nullable().default(null)
+
+export const structuredAddressSchema = z
+  .object({
+    province: _nameFieldSchema,
+    province_adcode: _adcodeFieldSchema,
+    city: _nameFieldSchema,
+    city_adcode: _adcodeFieldSchema,
+    district: _nullableName,
+    district_adcode: _nullableAdcode,
+    street: _nullableName,
+    community: _nullableName,
+    poi_id: _nullablePoiId,
+    door_no: z.string().max(_DOOR_NO_MAX, `door_no 长度必须 ≤ ${_DOOR_NO_MAX}`).nullable().default(null),
+  })
+  .refine(
+    (addr) =>
+      (addr.district === null) === (addr.district_adcode === null),
+    {
+      message: 'district 与 district_adcode 必须同生同灭',
+      path: ['district_adcode'],
+    },
+  )
+
+/** F051 §6.4 — `default_location` 由 string | null 迁移到 StructuredAddress | null.
+ *  旧 DB 字段（plain string）会被后端 GET 时归一化为 null（见 preferences service
+ *  `_normalize_default_location`），前端 PUT 时只接受 null 或完整对象。 */
+const defaultLocationSchema = structuredAddressSchema.nullable()
 
 /** budget: Decimal | null, 上限必须 ≥ 下限 (F001 §6 INVALID_BUDGET) */
 const budgetSchema = z

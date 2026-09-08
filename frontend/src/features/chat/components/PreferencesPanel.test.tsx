@@ -86,7 +86,7 @@ beforeEach(() => {
   useChatStore.setState({
     uiPrefs: { ...DEFAULT_UI_PREFS },
     sessionId: 'test-session',
-    address: '上海 · 静安嘉里中心',
+    address: null,
     status: 'idle',
   })
   startMock.mockReset()

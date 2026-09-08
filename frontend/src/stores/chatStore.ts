@@ -1,5 +1,5 @@
 /**
- * F050 — Chat 业务 store (Zustand)
+ * F050 / F051 — Chat 业务 store (Zustand)
  *
  * 持有 SSE 流产出 + 本地 UI 状态。useAgentStream 在收到 SSE 事件时调用
  * 这里的 setter; 组件层 useChatStore(selector) 订阅切片。
@@ -8,6 +8,10 @@
  * - 不持久化 (sessionStorage 也不存; spec §8 #8 心情 / §8 #4 preset-rainy 仅本地)
  * - status 字段统一表达流式状态机
  * - thinking 步骤由 useAgentStream 维护递增 marker
+ *
+ * F051 §6.5 — `address` 由 string 迁移到 StructuredAddress | null.
+ * `DEFAULT_LEGACY_ADDRESS` 仅作为 UI 显示兜底字符串（首屏 / 旧用户
+ * 未填地址），不参与 PUT payload.
  */
 import { create } from 'zustand'
 import type {
@@ -16,6 +20,7 @@ import type {
   CuisineId,
   Recommendation,
   Restaurant,
+  StructuredAddress,
   ThinkingStep,
   UiPreferences,
   WeatherInfo,
@@ -41,7 +46,9 @@ interface ChatStore {
 
   // 用户会话级 prefs (本地; 由 useAgentStream 在 ask-agent 时透传给后端)
   uiPrefs: UiPreferences
-  address: string
+  /** F051 §6.5 — 用户结构化默认地址。`null` 表示未填（首屏 / 旧用户）。
+   * 真实值在 PUT /api/v1/preferences 时由 PreferencesPanel 透传。 */
+  address: StructuredAddress | null
   locationOverride: string | null
   sessionId: string | null
 
@@ -68,12 +75,19 @@ interface ChatStore {
   resetUiPrefs: () => void
 
   // session / location
-  setAddress: (a: string) => void
+  setAddress: (a: StructuredAddress | null) => void
   setLocationOverride: (loc: string | null) => void
   setSessionId: (id: string | null) => void
 }
 
-export const DEFAULT_ADDRESS = '上海 · 静安嘉里中心 B2'
+/**
+ * F051 §6.5 — UI 显示兜底字符串.
+ *
+ * 历史值: '上海 · 静安嘉里中心 B2' (F050 §8 #5 占位).
+ * 当 `address === null` 时由 ContextStrip 通过 `formatAddressSummary` 拼接
+ * 后再用此字符串兜底 — 不写入 chatStore.address, 也不参与 PUT payload.
+ */
+export const DEFAULT_LEGACY_ADDRESS = '上海 · 静安嘉里中心 B2'
 let stepCounter = 0
 const nextMarker = () => ++stepCounter
 
@@ -89,7 +103,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   error: null,
 
   uiPrefs: DEFAULT_UI_PREFS,
-  address: DEFAULT_ADDRESS,
+  address: null,
   locationOverride: null,
   sessionId: null,
 

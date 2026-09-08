@@ -64,6 +64,86 @@ export type AllergyValue = (typeof ALLERGY_VALUES)[number]
 export type TemperaturePreference = 'cold' | 'room' | 'hot'
 
 // =====================================================================
+// F051 §3.1 — StructuredAddress
+// 与 backend/app/schemas/structured_address.py 字段一一对应。
+// `default_location` 在 UserPreferences 中由 string | null 迁移到此对象 | null。
+// `district` / `district_adcode` 必须同生同灭（cross-field），由后端校验。
+// =====================================================================
+
+export interface StructuredAddress {
+  /** 省级名称（如「上海市」） */
+  province: string
+  /** 省级 adcode（6 位数字） */
+  province_adcode: string
+  /** 市级名称（同时是 Amap weather 的查询锚点） */
+  city: string
+  /** 市级 adcode（6 位数字） */
+  city_adcode: string
+  /** 区级名称（可选；同时是 Amap place/around 的查询锚点） */
+  district: string | null
+  /** 区级 adcode（6 位数字；与 district 同生同灭） */
+  district_adcode: string | null
+  /** 街道 / 商圈（可选） */
+  street: string | null
+  /** 小区 / 楼宇（可选） */
+  community: string | null
+  /** 高德 POI id（`B0FF...` 形式，20-32 位大写字母+数字） */
+  poi_id: string | null
+  /** 门牌号 / 楼层 / 房间号（任意字符，长度 ≤ 64） */
+  door_no: string | null
+}
+
+// =====================================================================
+// F051 §5.1 — 高德 `/config/district` 返回结构
+// `center` 是 [longitude, latitude]，tuple 与后端一致。
+// `districts` 仅当 `subdistrict >= 1` 且该节点有下属区划时非空。
+// =====================================================================
+
+export type DistrictLevel = 'country' | 'province' | 'city' | 'district' | 'street'
+
+export interface DistrictInfo {
+  adcode: string
+  name: string
+  level: DistrictLevel
+  center: [number, number]
+  districts: DistrictInfo[]
+}
+
+// =====================================================================
+// F051 §5.2 — 高德 `/geocode/regeo` 返回结构
+// =====================================================================
+
+export interface RegeoInfo {
+  province: string
+  city: string
+  district: string
+  adcode: string
+  formatted_address: string
+  longitude: number
+  latitude: number
+}
+
+// =====================================================================
+// F051 §5.3 — 高德 `/place/text` POI 候选 + 搜索结果 envelope
+// 与 F030 `Restaurant` 重叠但更轻量——只保留选址场景需要的字段。
+// =====================================================================
+
+export interface PoiCandidate {
+  poi_id: string
+  name: string
+  address: string
+  /** 高德原始 type 字符串（例：「餐饮服务;中餐厅;四川菜」） */
+  type: string
+  location: [number, number]
+}
+
+export interface PlaceSearchResult {
+  pois: PoiCandidate[]
+  /** 高德原始返回条数（≤ offset）；本模块不过滤，直接投影。 */
+  count: number
+}
+
+// =====================================================================
 // F001 — UserPreferences (HTTP Pydantic 表面镜像)
 // =====================================================================
 
@@ -73,7 +153,9 @@ export interface UserPreferences {
   allergies: AllergyValue[]
   spice_tolerance: number
   temperature_preference: TemperaturePreference
-  default_location: string | null
+  /** F051: 由 string | null 迁移到 StructuredAddress | null.
+   *  GET 时若 DB 仍是旧字符串（F051 兼容层），前端按 null 处理。 */
+  default_location: StructuredAddress | null
   budget_lunch_min: number | null
   budget_lunch_max: number | null
 }

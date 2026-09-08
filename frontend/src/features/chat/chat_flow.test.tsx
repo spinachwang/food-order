@@ -127,7 +127,7 @@ beforeEach(() => {
     thinking: [],
     error: null,
     uiPrefs: { ...DEFAULT_UI_PREFS },
-    address: '上海 · 静安嘉里中心',
+    address: null,
   })
 })
 
