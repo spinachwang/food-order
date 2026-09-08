@@ -53,7 +53,7 @@ export function ContextStrip({ now }: ContextStripProps): JSX.Element {
         </div>
         <div className={styles.body}>
           <p className={styles.label}>你在</p>
-          <p className={styles.value}>{addressDisplay}</p>
+          <p className={styles.value} data-od-id="addr-summary">{addressDisplay}</p>
           <p className={styles.hint}>
             {clock ? `正在查看 · ${clock} · Agent 已锁定这个位置` : 'Agent 已锁定这个位置'}
           </p>
