@@ -66,6 +66,19 @@ class InvalidBudgetError(DomainError):
     http_status = 400
 
 
+class InvalidStructuredAddressError(DomainError):
+    """F051 §7 — default_location 结构化对象字段缺失或正则不匹配.
+
+    与 `app.schemas.structured_address.StructuredAddress` 的
+    `field_validator` 编码 `INVALID_STRUCTURED_ADDRESS` 错误码配套 —
+    Pydantic 路径下用户看到的仍是 `INVALID_STRUCTURED_ADDRESS`，本类
+    仅供业务代码（服务层 / Node 层）显式抛错的场景。
+    """
+
+    code = "INVALID_STRUCTURED_ADDRESS"
+    http_status = 400
+
+
 # ----- Reserved for future -----
 
 
@@ -151,6 +164,16 @@ class AmapLocationInvalidError(AmapError):
     http_status = 502
 
 
+class AmapDistrictNotFoundError(AmapError):
+    """F051 §5.1 — 高德 /config/district 未命中 keywords.
+
+    调用方应回退到省级列表 (36 项硬编码) 或引导用户重新输入.
+    """
+
+    code = "AMAP_DISTRICT_NOT_FOUND"
+    http_status = 404
+
+
 # ----- Exception handlers -----
 
 
@@ -174,8 +197,35 @@ async def _request_validation_error_handler(
         return JSONResponse(status_code=400, content=err(code, message, details))
     return JSONResponse(
         status_code=400,
-        content=err("VALIDATION_ERROR", "请求参数校验失败", {"errors": exc.errors()}),
+        content=err(
+            "VALIDATION_ERROR", "请求参数校验失败", {"errors": _safe_errors(exc.errors())}
+        ),
     )
+
+
+def _safe_errors(errors: "Any") -> list[dict[str, Any]]:
+    """Make a JSON-safe copy of Pydantic error dicts.
+
+    Pydantic v2 attaches the original `ValueError` to `ctx["error"]`, which
+    `JSONResponse` cannot serialize. Replace it with its string form so the
+    frontend can still inspect the encoded `<CODE>|<message>|<details>` payload.
+
+    Accepts `Any` because FastAPI's `RequestValidationError.errors()` is typed as
+    `Sequence[ErrorDetails]`; we only iterate / index, so the broader type is fine.
+    """
+    safe: list[dict[str, Any]] = []
+    if not errors:
+        return safe
+    for error in errors:
+        if not isinstance(error, dict):
+            continue
+        ctx = error.get("ctx")
+        if isinstance(ctx, dict) and isinstance(ctx.get("error"), BaseException):
+            ctx = {**ctx, "error": str(ctx["error"])}
+            safe.append({**error, "ctx": ctx})
+        else:
+            safe.append(dict(error))
+    return safe
 
 
 async def _http_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
@@ -183,6 +233,23 @@ async def _http_exception_handler(_request: Request, exc: Exception) -> JSONResp
     # Preserve the HTTPException's status but envelope its detail string.
     detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
     return JSONResponse(status_code=exc.status_code, content=err("HTTP_ERROR", detail))
+
+
+async def _value_error_handler(_request: Request, exc: Exception) -> JSONResponse:
+    """F051 §4 — wrapper `ValueError` (入参非法) → 400 envelope.
+
+    MCP wrappers (`amap_regeo`, `amap_search_places`, `amap_get_district`)
+    raise plain `ValueError` on bad inputs (not in the `DomainError` family
+    — they're reusable utilities, not HTTP-coupled). Without this handler,
+    those propagate as 500 / re-raise in TestClient.
+
+    Routing `ValueError` → 400 here keeps the public contract consistent:
+    "bad input from client → 4xx, never 5xx". The original message is
+    surfaced verbatim (already user-friendly Chinese / structured).
+    """
+    assert isinstance(exc, ValueError)
+    message = str(exc) or "参数非法"
+    return JSONResponse(status_code=400, content=err("VALIDATION_ERROR", message))
 
 
 def _try_decode_encoded_error(
@@ -193,8 +260,31 @@ def _try_decode_encoded_error(
 
     Returns None when no error carries the encoded payload — caller falls back
     to the generic `VALIDATION_ERROR` envelope.
+
+    Special case (F051 §6/§7): errors with `loc` rooted at `default_location`
+    are always surfaced as `INVALID_STRUCTURED_ADDRESS`, regardless of whether
+    they came from a `ValueError` payload, a Pydantic `model_type` mismatch
+    (string passed instead of dict/StructuredAddress), a `missing` field, or
+    a nested field-validator regex miss. This keeps the public contract stable
+    so the frontend can switch on a single code regardless of which sub-rule
+    fired.
     """
-    for error in exc.errors():
+    errors = exc.errors()
+
+    # 1) F051 mapping first — `default_location` failures always emit this code.
+    # FastAPI prefixes errors with `("body", ...)` for request payloads, so the
+    # `default_location` path may appear anywhere in `loc`.
+    for error in errors:
+        loc = error.get("loc") or ()
+        if "default_location" in loc:
+            return (
+                "INVALID_STRUCTURED_ADDRESS",
+                "default_location 校验失败",
+                _safe_errors(errors),
+            )
+
+    # 2) Generic encoded-ValueError payload (F001 etc.)
+    for error in errors:
         ctx = error.get("ctx") or {}
         raw = ctx.get("error") or error.get("input")
         if not isinstance(raw, ValueError):
@@ -216,3 +306,5 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(DomainError, _domain_error_handler)
     app.add_exception_handler(RequestValidationError, _request_validation_error_handler)
     app.add_exception_handler(HTTPException, _http_exception_handler)
+    # F051: wrapper ValueError → 400 envelope (避免 500 / TestClient 重抛)
+    app.add_exception_handler(ValueError, _value_error_handler)
