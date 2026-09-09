@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
+from app.core.envelope import ok
 from app.core.request_id import get_request_id
 from app.core.user_id import get_current_user_id
 from app.mcp.amap.regeo import RegeoInfo, amap_regeo
@@ -23,17 +24,24 @@ from app.mcp.amap.regeo import RegeoInfo, amap_regeo
 router = APIRouter()
 
 
-@router.get("/regeo", response_model=RegeoInfo)
+@router.get("/regeo")
 async def geocode_regeo(
     location: str = Query(
         ...,
         description="经纬度字符串, 格式 'lng,lat' (例: '121.473701,31.230416')",
     ),
     _user_id: str = Depends(get_current_user_id),
-) -> RegeoInfo:
-    """F051 §5.2: 逆地理编码 — 经纬度 → 行政区划."""
+) -> dict[str, object]:
+    """F051 §5.2: 逆地理编码 — 经纬度 → 行政区划.
+
+    Success response uses `spec/api.md §通用约定` envelope: `{"ok": true, "data": RegeoInfo}`.
+    `response_model` deliberately omitted — `ok()` returns a plain dict so the
+    generated OpenAPI shape matches the wire format instead of rejecting the
+    envelope wrapper against the typed `RegeoInfo` payload.
+    """
     _ = get_request_id()
-    return await amap_regeo(location=location)
+    payload: RegeoInfo = await amap_regeo(location=location)
+    return ok(payload)
 
 
 __all__ = ["router"]

@@ -17,6 +17,7 @@ LangGraph Node (`search_restaurants.py`) 直接 await 调用.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -140,12 +141,16 @@ async def amap_search_restaurants(
 
         client = get_amap_client()
 
+    # F051 §6.3: location 可能是 6 位 adcode (StructuredAddress.city_adcode);
+    # 高德 place/around 仅收 `lng,lat`, 这里 translate adcode → 中心点经纬度.
+    coord_location = await _ensure_coord(location, client=client)
+
     payload = await client.get_json(
         "/v3/place/around",
         params={
             "keywords": "|".join(keywords),
             "types": _AMAP_FOOD_CATEGORY,
-            "location": location,
+            "location": coord_location,
             "radius": str(radius_meters),
             "offset": str(max_results),
             "page": "1",
@@ -206,6 +211,81 @@ async def amap_search_restaurants(
 
 
 # ----- 内部辅助 -----
+
+
+def _is_coord(value: str) -> bool:
+    """是否 `lng,lat` 数字坐标 (例如 `116.43,39.91`). 高德 `place/around`
+    必须传坐标, 其他格式 (adcode / 城市名 / 中文地标) 会触发
+    `infocode=20000 INVALID_PARAMS`."""
+    if "," not in value:
+        return False
+    left, _, right = value.partition(",")
+    try:
+        float(left.strip())
+        float(right.strip())
+    except ValueError:
+        return False
+    return True
+
+
+# F051 §6.3: adcode (6 位数字) → 行政区中心点 (lng,lat).
+# 高德 `/v3/config/district?keywords=<adcode>&subdistrict=0` 返回该 adcode
+# 节点的 `center` 字段; 同一 Node 多次调高德时复用同一份缓存.
+_ADCODE_PATTERN = re.compile(r"^\d{6}$")
+_adcode_coord_cache: dict[str, str] = {}
+
+
+async def _ensure_coord(location: str, *, client: AmapClient) -> str:
+    """把 F051 StructuredAddress 取出的 adcode (或兼容字符串) 转成
+    `place/around` 接受的 `lng,lat` 格式.
+
+    Args:
+        location: 来自 Node 的 location — 形如 `116.43,39.91` (坐标),
+            `110000` (6 位 adcode), 或其他 (区级地标 / 城市名 — 透传,
+            让上层 fallback 或让 Amap 自己报错).
+        client: 已构造的 AmapClient (透传给 `amap_get_district`).
+
+    Returns:
+        `lng,lat` 格式坐标字符串. 若输入已是坐标 → 透传; adcode → 调
+        `/v3/config/district` 取 center; 其他 → 透传.
+
+    Raises:
+        AmapDistrictNotFoundError: adcode 在高德查不到 (罕见, 多半是
+            错误数据). 上层应捕获并 fallback 到默认坐标.
+    """
+    if _is_coord(location):
+        return location
+    if not _ADCODE_PATTERN.match(location.strip()):
+        # 区级地标 / 城市名 / 完整地址 — 透传, 让上游 fallback 处理
+        return location
+    cached = _adcode_coord_cache.get(location)
+    if cached is not None:
+        return cached
+    # 延迟导入避免循环依赖 (district.py 不依赖本模块, 但放在顶部 import
+    # 会让 single-tool test 多拉一份 client 模块)
+    from app.mcp.amap.district import amap_get_district
+
+    nodes = await amap_get_district(keywords=location, subdistrict=0, client=client)
+    if not nodes:
+        # 高德协议上 keywords=adcode 应总命中; 命中不到时让上层 fallback
+        from app.core.exceptions import AmapDistrictNotFoundError
+
+        raise AmapDistrictNotFoundError(
+            f"高德未找到 adcode 对应的行政区划 (adcode={location!r})",
+            details={"adcode": location},
+        )
+    lng, lat = nodes[0]["center"]
+    if lng == 0.0 and lat == 0.0:
+        # 高德偶尔对港澳 / 边境返回 (0,0) — 不视作合法坐标
+        from app.core.exceptions import AmapDistrictNotFoundError
+
+        raise AmapDistrictNotFoundError(
+            f"高德未返回 adcode 中心点 (adcode={location!r})",
+            details={"adcode": location},
+        )
+    coord = f"{lng},{lat}"
+    _adcode_coord_cache[location] = coord
+    return coord
 
 
 def _validate_keywords(keywords: list[str]) -> None:

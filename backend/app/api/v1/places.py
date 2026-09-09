@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
+from app.core.envelope import ok
 from app.core.request_id import get_request_id
 from app.core.user_id import get_current_user_id
 from app.mcp.amap.place_text import PlaceSearchResult, amap_search_places
@@ -21,7 +22,7 @@ from app.mcp.amap.place_text import PlaceSearchResult, amap_search_places
 router = APIRouter()
 
 
-@router.get("/search", response_model=PlaceSearchResult)
+@router.get("/search")
 async def search_places(
     keywords: str = Query(
         ...,
@@ -46,15 +47,18 @@ async def search_places(
         description="返回条数上限 (1-25)",
     ),
     _user_id: str = Depends(get_current_user_id),
-) -> PlaceSearchResult:
+) -> dict[str, object]:
     """F051 §5.3: POI 关键字搜索 — 商圈 / 小区 / 楼宇 主入口.
 
     city 限定时由 wrapper 自动加 `citylimit=true` (强制只在 city 范围内匹配).
+
+    Success response uses `spec/api.md §通用约定` envelope: `{"ok": true, "data": PlaceSearchResult}`.
     """
     _ = get_request_id()  # 已通过 logger filter 注入
-    return await amap_search_places(
+    payload: PlaceSearchResult = await amap_search_places(
         keywords=keywords, city=city, types=types, offset=offset
     )
+    return ok(payload)
 
 
 __all__ = ["router"]

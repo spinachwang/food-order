@@ -120,6 +120,17 @@ class AmapClient:
             query.update(params)
 
         url = f"{self.base_url}{path}"
+
+        # ---- 入参日志: 把发给高德的 query 打印出来, 便于排查 INVALID_PARAMS /
+        # 配额 / 业务异常. key 做脱敏避免写到日志文件 / log shipper.
+        sanitized_query = _redact_sensitive_query(query)
+        logger.info(
+            "Amap request path=%s params=%s url=%s",
+            path,
+            sanitized_query,
+            url,
+        )
+
         last_error: Exception | None = None
 
         # 共 max_retries + 1 次尝试
@@ -263,6 +274,33 @@ class AmapClient:
         if attempt < 0:
             return
         await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2**attempt))
+
+
+# ----- module-level helpers -----
+
+
+# 高德 query 中需要脱敏的字段 (避免写到日志文件 / log shipper 后泄露凭据).
+# 目前只有 `key`; 预留集合便于后续接入 `sig` / 其它签名参数时扩展.
+_SENSITIVE_QUERY_KEYS: frozenset[str] = frozenset({"key", "sig"})
+
+
+def _redact_sensitive_query(query: Mapping[str, Any]) -> dict[str, Any]:
+    """返回 query 的浅拷贝, 把敏感字段 (key / sig) 替换成 `'***'`.
+
+    Args:
+        query: 即将发往高德的完整 query (含 key).
+
+    Returns:
+        新的 dict, 键集合与原 query 一致, 但敏感键的值被替换为 `'***'`.
+        原 query 不被修改 (不可变原则, 配合 logger.info 的延迟格式化).
+    """
+    redacted: dict[str, Any] = {}
+    for k, v in query.items():
+        if k in _SENSITIVE_QUERY_KEYS:
+            redacted[k] = "***"
+        else:
+            redacted[k] = v
+    return redacted
 
 
 # ----- factory -----

@@ -15,6 +15,7 @@ from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, Query
 
+from app.core.envelope import ok
 from app.core.request_id import get_request_id
 from app.core.user_id import get_current_user_id
 from app.mcp.amap.district import DistrictInfo, amap_get_district
@@ -22,7 +23,7 @@ from app.mcp.amap.district import DistrictInfo, amap_get_district
 router = APIRouter()
 
 
-@router.get("", response_model=list[DistrictInfo])
+@router.get("")
 async def get_districts(
     keywords: str | None = Query(
         default=None,
@@ -36,7 +37,7 @@ async def get_districts(
         description="下钻层级深度; 0=仅 keywords 命中节点, 1=下钻 1 级, ...",
     ),
     _user_id: str = Depends(get_current_user_id),
-) -> list[DistrictInfo]:
+) -> dict[str, object]:
     """F051 §5.1: 行政区划查询 — 前端 AddressPickerDialog 主入口.
 
     Auth 仍走 `get_current_user_id` (与 preferences / agent 一致), 防止匿名滥用
@@ -44,12 +45,15 @@ async def get_districts(
 
     `subdistrict` 在 HTTP 层声明为 `int` (FastAPI 把 query string coerce 成 int),
     由 `Query(ge=0, le=3)` 校验范围后再 cast 给 MCP tool 的 `Literal[0, 1, 2, 3]`.
+
+    Success response uses `spec/api.md §通用约定` envelope: `{"ok": true, "data": [DistrictInfo]}`.
     """
     _ = get_request_id()  # 已通过 logger filter 注入
-    return await amap_get_district(
+    payload: list[DistrictInfo] = await amap_get_district(
         keywords=keywords,
         subdistrict=cast(Literal[0, 1, 2, 3], subdistrict),
     )
+    return ok(payload)
 
 
 __all__ = ["router"]
