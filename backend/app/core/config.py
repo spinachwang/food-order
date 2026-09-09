@@ -61,6 +61,16 @@ class Settings(BaseSettings):
     # log_prompt_debug: gate for full LLM prompt/response bodies in DEBUG logs.
     # Set False in production to never persist raw prompts (privacy / cost).
     log_prompt_debug: bool = True
+    # log_file_path: opt-in rotating file sink. Empty → disabled (stderr only).
+    # Relative paths resolve against the repo root; the parent directory is
+    # auto-created on first use. Set this to capture LLM prompts/responses
+    # to disk for post-mortem debugging without tailing stderr.
+    log_file_path: str = ""
+    # log_file_max_bytes: per-file size cap for `RotatingFileHandler`.
+    log_file_max_bytes: int = 10 * 1024 * 1024  # 10 MB
+    # log_file_backup_count: number of rotated files retained on disk
+    # (food.log + N rotations = (N+1) × max_bytes max footprint).
+    log_file_backup_count: int = 5
 
     # --- AMAP MCP (F030 餐厅搜索 + F031 天气 — 共用 key) ---
     # F030 §6: 启动时校验 key 存在；缺失则 fail-fast。
@@ -103,6 +113,23 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         """Parse CORS origins into a list (comma-separated env)."""
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
+
+    @property
+    def log_file_path_resolved(self) -> Path | None:
+        """Resolve `log_file_path` to an absolute `Path`, or `None` if disabled.
+
+        - Empty / whitespace-only → `None` (caller skips the file sink).
+        - Absolute paths → returned unchanged (`Path.is_absolute()` correctly
+          recognises Windows drive roots like `D:\\...` under stdlib).
+        - Relative paths → joined to the repo root so the operator can write
+          `LOG_FILE_PATH=logs/dev.log` and get a stable location regardless
+          of the process cwd (uvicorn, IDE, pytest all disagree on cwd).
+        """
+        raw = self.log_file_path.strip()
+        if not raw:
+            return None
+        p = Path(raw)
+        return p if p.is_absolute() else _REPO_ROOT / p
 
 
 @lru_cache(maxsize=1)

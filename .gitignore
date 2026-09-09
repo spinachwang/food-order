@@ -37,8 +37,13 @@ frontend/vite.config.d.ts
 
 # ============ 日志与运行时 ============
 *.log
+logs/
 .DS_Store
 Thumbs.db
+
+# ============ 调试产物（不入仓）============
+# 高德 API 响应调试快照（由 scripts/amap_regeo_debug.py 产出）
+backend/save_resp.json
 
 # ============ 编辑器 ============
 .vscode/

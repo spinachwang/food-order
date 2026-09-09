@@ -16,11 +16,18 @@ formatter option for log shippers, and clean module separation.
 Why not `loguru` / `structlog`? Project standard (per logging audit) is
 stdlib `logging`. We don't introduce dependencies for cross-cutting concerns
 that stdlib already covers.
+
+File sink: when `Settings.log_file_path` is non-empty, `setup_logging()`
+also attaches a `RotatingFileHandler` to the root logger so DEBUG-level
+LLM prompts/responses and INFO skeletons are persisted to disk for
+post-mortem review. Disabled by default (`LOG_FILE_PATH=""`); the sink
+is opt-in to avoid surprising existing deployments with on-disk state.
 """
 from __future__ import annotations
 
 import logging
 import logging.config
+from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
@@ -39,18 +46,61 @@ _JSON_FORMAT = (
 )
 
 
-def _build_config(level: str, fmt: str) -> dict[str, Any]:
+def _build_config(
+    level: str,
+    fmt: str,
+    *,
+    file_path: Path | None = None,
+    max_bytes: int = 10 * 1024 * 1024,
+    backup_count: int = 5,
+) -> dict[str, Any]:
     """Construct a dictConfig payload.
 
     Layout:
       - root: INFO (or override), no handlers at root — propagation only
       - app.*: inherits from root (configured below)
-      - app.agents.llm: DEBUG so prompts are visible when root is INFO
+      - app.agents.observability: DEBUG so `instrument_llm_call` /
+        `logged_node` can render full prompt + response bodies when
+        `LOG_LEVEL` is INFO (the default). Without this override the
+        observability logger inherits root INFO and `_logger.isEnabledFor(
+        logging.DEBUG)` is always False, so the DEBUG prompt/response
+        blocks never print.
+      - app.agents.llm: DEBUG so transport-level details are visible
       - app.agents.prompts: DEBUG for prompt-render trace
       - app.agents.nodes: INFO for per-node enter/exit
       - uvicorn / sqlalchemy.engine: WARNING (quiet default)
+
+    File sink: when `file_path` is not None, a `RotatingFileHandler` named
+    "file" is appended to root's handler list. The parent directory is
+    created here (not lazily) so the very first record does not raise
+    FileNotFoundError on operators who point at a fresh path.
     """
     format_string = _JSON_FORMAT if fmt == "json" else _HUMAN_FORMAT
+
+    handlers: dict[str, Any] = {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "human",
+            "filters": ["request_id"],
+        },
+    }
+    root_handlers: list[str] = ["console"]
+
+    if file_path is not None:
+        # Create the parent directory synchronously so the first record does
+        # not fail with FileNotFoundError. Idempotent — no-op if it exists.
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers["file"] = {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(file_path),
+            "maxBytes": max_bytes,
+            "backupCount": backup_count,
+            "encoding": "utf-8",
+            "formatter": "human",
+            "filters": ["request_id"],
+        }
+        root_handlers.append("file")
 
     return {
         "version": 1,
@@ -66,20 +116,15 @@ def _build_config(level: str, fmt: str) -> dict[str, Any]:
                 "datefmt": "%Y-%m-%dT%H:%M:%S",
             },
         },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stderr",
-                "formatter": "human",
-                "filters": ["request_id"],
-            },
-        },
+        "handlers": handlers,
         "loggers": {
             # `app` inherits from root so user-set LOG_LEVEL=DEBUG cascades to
-            # every `app.*` logger. Per-module overrides live ONLY on
-            # `app.agents.llm` / `app.agents.prompts` (always DEBUG — prompts
-            # are useless below DEBUG and we want them inspectable whenever
-            # the operator flips LOG_LEVEL above WARNING).
+            # every `app.*` logger. Per-module overrides live ONLY on the
+            # observability / llm / prompts sub-loggers — they stay DEBUG even
+            # when root is INFO, so prompts and node enter/exit are inspectable
+            # without forcing the operator to flip the global level (which
+            # would also flood SQL/noise into the log stream).
+            "app.agents.observability": {"level": "DEBUG", "handlers": [], "propagate": True},
             "app.agents.llm": {"level": "DEBUG", "handlers": [], "propagate": True},
             "app.agents.prompts": {"level": "DEBUG", "handlers": [], "propagate": True},
             # Third-party — silence the noisy ones unless user opts in via
@@ -88,7 +133,7 @@ def _build_config(level: str, fmt: str) -> dict[str, Any]:
             "uvicorn.access": {"level": "INFO", "handlers": [], "propagate": True},
             "sqlalchemy.engine": {"level": "WARNING", "handlers": [], "propagate": True},
         },
-        "root": {"level": level, "handlers": ["console"]},
+        "root": {"level": level, "handlers": root_handlers},
     }
 
 
@@ -118,7 +163,13 @@ def setup_logging(*, level: str | None = None, fmt: str | None = None) -> None:
     # `disable_existing_loggers=False` flag in dictConfig doesn't stack them.
     _reset_handlers()
 
-    config = _build_config(level=chosen_level, fmt=chosen_fmt)
+    config = _build_config(
+        level=chosen_level,
+        fmt=chosen_fmt,
+        file_path=settings.log_file_path_resolved,
+        max_bytes=settings.log_file_max_bytes,
+        backup_count=settings.log_file_backup_count,
+    )
     logging.config.dictConfig(config)
 
 

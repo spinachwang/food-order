@@ -155,13 +155,20 @@ class AmapNetworkError(AmapError):
 
 
 class AmapLocationInvalidError(AmapError):
-    """AMAP 无法解析 location（地标 / adcode 不存在）。
+    """AMAP 无法解析 location（坐标无法落到有效行政区划 / adcode 不存在）。
 
-    F031 §5: 调用方（summary agent）应使用 IP 城市兜底，而非直接抛给上游。
+    HTTP **422** (Unprocessable Entity) 而不是 502:
+    - 502 = "Bad Gateway", 描述网关/代理层收到上游协议级失败
+    - 但高德 `status=1 + regeocode` 缺失是正常 200 响应 + 业务数据缺失,
+      属于客户端请求语义无法处理 (Unprocessable Entity), 不是网关错
+    - 前端 `useGeolocation` 据此判别降级路径, 而不是误以为网关挂了
+
+    F031 §5: 调用方（summary agent）应使用 IP 城市兜底。
+    F051 §2.4: 弹窗层也要走「定位失败 → 默认城市兜底」分支。
     """
 
     code = "AMAP_LOCATION_INVALID"
-    http_status = 502
+    http_status = 422
 
 
 class AmapDistrictNotFoundError(AmapError):

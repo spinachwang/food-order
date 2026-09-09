@@ -56,6 +56,7 @@ from app.agents.llm.testing import FakeLLMProvider
 from app.agents.main_router import route_cuisines
 from app.agents.state import AgentState, UserPreferencesDict
 from app.core.constants import CUISINE_IDS, NEUTRAL_CUISINE_WEIGHT
+from app.core.logging import setup_logging
 
 
 def _parse_optional_json(raw: str | None, default: object, label: str) -> object:
@@ -196,6 +197,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+
+    # Mirror the FastAPI app's logging config — but only when the operator
+    # has opted into file logging. Without this guard the dev CLI would
+    # suddenly emit a noisy `app.agents.*` skeleton to stderr for users
+    # who never asked for it.
+    from app.core.config import get_settings  # local import keeps top imports tidy
+
+    if get_settings().log_file_path.strip():
+        setup_logging()
 
     prefs = _build_prefs(args.cuisine_weights, args.allergies, seed=0)
     provider, mode = _make_provider(args.llm_response)
