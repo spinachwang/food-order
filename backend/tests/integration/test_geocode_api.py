@@ -32,18 +32,28 @@ def _ok_payload(
         "status": "1",
         "info": "OK",
         "infocode": "10000",
-        "regeocodes": [
-            {
-                "formatted_address": f"{province}{city}{district}南京西路xxx号",
-                "addressComponent": {
-                    "province": province,
-                    "city": city,
-                    "district": district,
-                    "adcode": adcode,
+        "regeocode": {
+            "formatted_address": f"{province}{city}{district}南京西路xxx号",
+            "addressComponent": {
+                "province": province,
+                "city": city,
+                "district": district,
+                "adcode": adcode,
+                "township": "南京西路街道",
+                "neighborhood": {
+                    "name": "静安嘉里中心",
+                    "type": "商务住宅",
                 },
-                "location": f"{lng},{lat}",
-            }
-        ],
+                "streetNumber": {
+                    "street": "南京西路",
+                    "number": "1788号",
+                },
+            },
+            "pois": [
+                {"id": "B0FFGKABCD1234567890", "name": "静安嘉里中心"},
+            ],
+            "location": f"{lng},{lat}",
+        },
     }
 
 
@@ -64,13 +74,20 @@ class TestGeocodeRegoHappyPath:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["province"] == "上海市"
-        assert body["city"] == "上海市"
-        assert body["district"] == "静安区"
-        assert body["adcode"] == "310106"
-        assert body["longitude"] == pytest.approx(121.473701)
-        assert body["latitude"] == pytest.approx(31.230416)
-        assert "南京西路" in body["formatted_address"]
+        assert body["ok"] is True
+        data = body["data"]
+        assert data["province"] == "上海市"
+        assert data["city"] == "上海市"
+        assert data["district"] == "静安区"
+        assert data["adcode"] == "310106"
+        assert data["longitude"] == pytest.approx(121.473701)
+        assert data["latitude"] == pytest.approx(31.230416)
+        assert "南京西路" in data["formatted_address"]
+        # 细粒度: street / community / door_no / poi_id 全部填上
+        assert data["street"] == "南京西路街道"
+        assert data["community"] == "静安嘉里中心"
+        assert data["door_no"] == "1788号"
+        assert data["poi_id"] == "B0FFGKABCD1234567890"
 
     @respx.mock
     def test_request_sends_location_param(
@@ -91,7 +108,8 @@ class TestGeocodeRegoHappyPath:
         # wrapper 重新格式化为 "lng,lat"
         assert "location" in sent
         assert "extensions" in sent
-        assert sent["extensions"] == "base"
+        # extensions=all 才会返回细粒度字段 (street/community/door_no/poi_id)
+        assert sent["extensions"] == "all"
 
 
 class TestGeocodeRegoParamValidation:
@@ -135,15 +153,20 @@ class TestGeocodeRegoParamValidation:
 
 class TestGeocodeRegoErrorMapping:
     @respx.mock
-    def test_location_invalid_returns_502(
+    def test_location_invalid_returns_422(
         self, client: TestClient, random_user_id: str
     ) -> None:
-        """高德返回空 regeocodes → AmapLocationInvalidError → HTTP 502."""
+        """高德返回空 regeocode → AmapLocationInvalidError → HTTP 422.
+
+        2026-09-08 决议：改为 422 (Unprocessable Entity)。原 502
+        (Bad Gateway) 会让前端误以为是网关层错误 — 实际是 200 + 业务空数据,
+        属于客户端请求语义无法处理, 不是网关失败.
+        """
         respx.get(_AMAP_REGEO_URL).mock(
             return_value=httpx.Response(
                 200,
                 json={"status": "1", "info": "OK", "infocode": "10000",
-                      "regeocodes": []},
+                      "regeocode": None},
             )
         )
 
@@ -153,7 +176,7 @@ class TestGeocodeRegoErrorMapping:
             headers={USER_ID_HEADER: random_user_id},
         )
 
-        assert resp.status_code == 502
+        assert resp.status_code == 422
         body = resp.json()
         assert body["error"]["code"] == "AMAP_LOCATION_INVALID"
 

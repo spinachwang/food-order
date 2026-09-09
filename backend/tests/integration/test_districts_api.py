@@ -24,6 +24,7 @@ _AMAP_DISTRICT_URL = "https://restapi.amap.com/v3/config/district"
 
 
 def _province_payload(adcode: str, name: str, center: str) -> dict[str, object]:
+    """返回 matched 省级节点, 子级包含 1 个市级 (供 wrapper 展开后顶层断言)."""
     return {
         "status": "1",
         "info": "OK",
@@ -35,7 +36,15 @@ def _province_payload(adcode: str, name: str, center: str) -> dict[str, object]:
                 "name": name,
                 "level": "province",
                 "center": center,
-                "districts": [],
+                "districts": [
+                    {
+                        "adcode": adcode[:2] + "0100",  # 上海市 → 310100
+                        "name": name,
+                        "level": "city",
+                        "center": center,
+                        "districts": [],
+                    }
+                ],
             }
         ],
     }
@@ -46,8 +55,9 @@ class TestDistrictsHappyPath:
     def test_keywords_none_returns_root(
         self, client: TestClient, random_user_id: str
     ) -> None:
-        """不传 keywords → 拉国家级根 (高德返回中国根 districts=[])"""
+        """不传 keywords → 拉国家级根, wrapper 展开后顶层是省级"""
         # Amap `keywords=None` 行为: 返回中国根, 含 1 个 country-level 节点
+        # wrapper 在 subdistrict>=1 时会展开, result 直接是省级列表
         respx.get(_AMAP_DISTRICT_URL).mock(
             return_value=httpx.Response(
                 200,
@@ -62,7 +72,15 @@ class TestDistrictsHappyPath:
                             "name": "中华人民共和国",
                             "level": "country",
                             "center": "116.368324,39.915085",
-                            "districts": [],
+                            "districts": [
+                                {
+                                    "adcode": "100000",
+                                    "name": "中华人民共和国",
+                                    "level": "country",
+                                    "center": "116.368324,39.915085",
+                                    "districts": [],
+                                }
+                            ],
                         }
                     ],
                 },
@@ -76,20 +94,25 @@ class TestDistrictsHappyPath:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert isinstance(body, list)
-        assert len(body) == 1
-        assert body[0]["adcode"] == "100000"
-        assert body[0]["name"] == "中华人民共和国"
-        assert body[0]["level"] == "country"
-        # tuple → JSON array
-        assert body[0]["center"] == [116.368324, 39.915085]
-        assert body[0]["districts"] == []
+        assert body["ok"] is True
+        # 展开后顶层是被 matched node (country) 的 .districts 内容
+        data = body["data"]
+        assert isinstance(data, list)
+        assert len(data) == 1
+        first = data[0]
+        assert first["adcode"] == "100000"
+        assert first["name"] == "中华人民共和国"
+        assert first["level"] == "country"
 
     @respx.mock
     def test_keywords_province_returns_province_node(
         self, client: TestClient, random_user_id: str
     ) -> None:
-        """keywords=上海市 → 返回上海市节点 (subdistrict=0 默认不下钻)"""
+        """keywords=上海市 → wrapper 展开 matched node 的子级, 顶层是市级.
+
+        F051 §5.1: 调用方拿到市级列表即可逐项填进 AddressPickerDialog 的
+        「市」下拉, 不必再自己展开 matched node.
+        """
         respx.get(_AMAP_DISTRICT_URL).mock(
             return_value=httpx.Response(
                 200, json=_province_payload("310000", "上海市", "121.473701,31.230416")
@@ -104,8 +127,12 @@ class TestDistrictsHappyPath:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body) == 1
-        assert body[0]["adcode"] == "310000"
+        assert body["ok"] is True
+        data = body["data"]
+        # 展开后顶层是市级条目, 而非 上海市 节点本身
+        assert len(data) == 1
+        assert data[0]["adcode"] == "310100"
+        assert data[0]["level"] == "city"
         # request 必须带 keywords 与 subdistrict=1 (默认)
         request = respx.calls.last.request
         sent_params = dict(request.url.params)

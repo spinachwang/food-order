@@ -61,9 +61,11 @@ class TestPlacesSearchHappyPath:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["count"] == 1
-        assert len(body["pois"]) == 1
-        first = body["pois"][0]
+        assert body["ok"] is True
+        data = body["data"]
+        assert data["count"] == 1
+        assert len(data["pois"]) == 1
+        first = data["pois"][0]
         assert first["poi_id"] == "B0FFFAB6J2ABCDEFGHIJ"
         assert first["name"] == "静安嘉里中心"
         # tuple → JSON array
@@ -132,8 +134,9 @@ class TestPlacesSearchHappyPath:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["pois"] == []
-        assert body["count"] == 0
+        assert body["ok"] is True
+        assert body["data"]["pois"] == []
+        assert body["data"]["count"] == 0
 
 
 class TestPlacesSearchParamValidation:

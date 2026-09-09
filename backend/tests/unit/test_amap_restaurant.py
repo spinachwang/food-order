@@ -596,3 +596,240 @@ class TestAmapSearchRestaurantsParamValidation:
                 max_results=50,
                 client=_make_client(),
             )
+
+
+# ---------------------------------------------------------------------------
+# TestAmapSearchRestaurantsAdcodeTranslation — F051 §6.3 集成
+# ---------------------------------------------------------------------------
+#
+# `search_restaurants._resolve_location` 会把 StructuredAddress 的 adcode 透传给
+# wrapper, 而 `place/around` 只收 `lng,lat` — wrapper 必须 translate.
+# 这里覆盖 `_ensure_coord` 的核心契约 + 端到端集成.
+
+
+_DISTRICT_URL = "https://restapi.amap.com/v3/config/district"
+
+
+def _district_payload(adcode: str, center: str) -> dict[str, object]:
+    """构造 `/v3/config/district` 命中 adcode 的响应."""
+    return {
+        "status": "1",
+        "info": "OK",
+        "infocode": "10000",
+        "count": "1",
+        "districts": [
+            {
+                "adcode": adcode,
+                "name": "测试区",
+                "level": "district",
+                "center": center,
+                "districts": [],
+            }
+        ],
+    }
+
+
+class TestEnsureCoordDirect:
+    """`_ensure_coord` 单元测试 — 不走 `amap_search_restaurants` 完整链路."""
+
+    @pytest.mark.asyncio
+    async def test_coord_passthrough(self) -> None:
+        from app.mcp.amap.restaurant import _ensure_coord
+
+        result = await _ensure_coord("116.433840,39.908740", client=_make_client())
+        assert result == "116.433840,39.908740"
+
+    @pytest.mark.asyncio
+    async def test_negative_coord_passthrough(self) -> None:
+        from app.mcp.amap.restaurant import _ensure_coord
+
+        result = await _ensure_coord("-122.4,37.7", client=_make_client())
+        assert result == "-122.4,37.7"
+
+    @pytest.mark.asyncio
+    async def test_non_coord_non_adcode_passthrough(self) -> None:
+        """城市名 / 区级地标 / 完整地址 — 透传, 由上游 fallback 处理."""
+        from app.mcp.amap.restaurant import _ensure_coord
+
+        # 即使透传也不调高德, 用不存在的 client 验证
+        sentinel = object()
+        result = await _ensure_coord("上海", client=sentinel)  # type: ignore[arg-type]
+        assert result == "上海"
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_adcode_translates_via_district_api(self) -> None:
+        from app.mcp.amap.restaurant import _adcode_coord_cache, _ensure_coord
+
+        # 选 121.45/31.23 这种无尾零的坐标, 避免 Python `str(float)` 剥零.
+        respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(200, json=_district_payload("110000", "121.45,31.23"))
+        )
+        # 清掉缓存防止其他测试的副作用
+        _adcode_coord_cache.clear()
+
+        result = await _ensure_coord("110000", client=_make_client())
+
+        assert result == "121.45,31.23"
+        # 缓存已写入
+        assert _adcode_coord_cache.get("110000") == "121.45,31.23"
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_adcode_cache_reused_on_second_call(self) -> None:
+        """同一 Node 多次调高德时, 同一 adcode 不重复请求 district API."""
+        from app.mcp.amap.restaurant import _adcode_coord_cache, _ensure_coord
+
+        route = respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(200, json=_district_payload("310106", "121.45,31.23"))
+        )
+        _adcode_coord_cache.clear()
+
+        first = await _ensure_coord("310106", client=_make_client())
+        second = await _ensure_coord("310106", client=_make_client())
+
+        assert first == "121.45,31.23"
+        assert second == "121.45,31.23"
+        # district API 只应被调一次
+        assert route.call_count == 1
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_adcode_with_zero_center_raises_district_not_found(self) -> None:
+        """高德对港澳 / 边境偶尔返回 center=(0,0) — 不视作合法坐标."""
+        from app.core.exceptions import AmapDistrictNotFoundError
+        from app.mcp.amap.restaurant import _adcode_coord_cache, _ensure_coord
+
+        respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(200, json=_district_payload("999999", "0.0,0.0"))
+        )
+        _adcode_coord_cache.clear()
+
+        with pytest.raises(AmapDistrictNotFoundError):
+            await _ensure_coord("999999", client=_make_client())
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_adcode_empty_districts_raises(self) -> None:
+        """高德返回空 districts 列表 — 视为 not found."""
+        from app.core.exceptions import AmapDistrictNotFoundError
+        from app.mcp.amap.restaurant import _adcode_coord_cache, _ensure_coord
+
+        respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "status": "1",
+                    "info": "OK",
+                    "infocode": "10000",
+                    "count": "0",
+                    "districts": [],
+                },
+            )
+        )
+        _adcode_coord_cache.clear()
+
+        with pytest.raises(AmapDistrictNotFoundError):
+            await _ensure_coord("123456", client=_make_client())
+
+
+class TestAmapSearchRestaurantsAdcodeTranslation:
+    """端到端: adcode 输入 → 经 `_ensure_coord` 转 lng,lat → 进 place/around."""
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_adcode_input_translates_before_place_around(self) -> None:
+        """F051 §6.3: StructuredAddress.city_adcode → wrapper translate → place/around 收 lng,lat."""
+        from app.mcp.amap.restaurant import _adcode_coord_cache
+
+        district_payload = _district_payload("310106", "121.450000,31.230000")
+        around_payload = _load_fixture("empty_result")
+
+        respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(200, json=district_payload)
+        )
+        around_route = respx.get(_AMAP_URL).mock(
+            return_value=httpx.Response(200, json=around_payload)
+        )
+        _adcode_coord_cache.clear()
+
+        result = await amap_search_restaurants(
+            keywords=["火锅"],
+            location="310106",  # ← adcode, 不是 lng,lat
+            radius_meters=1500,
+            min_rating=3.5,
+            max_results=10,
+            client=_make_client(),
+        )
+
+        # 验证 place/around 实际收到的是 translate 后的 lng,lat
+        around_request = around_route.calls.last.request
+        sent_location = dict(around_request.url.params).get("location")
+        assert sent_location == "121.45,31.23"  # translate 后
+
+        assert result["partial"] is True
+        assert result["restaurants"] == []
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_coord_input_skips_district_lookup(self) -> None:
+        """已经是 lng,lat → 跳过 district API, 直发 place/around."""
+        from app.mcp.amap.restaurant import _adcode_coord_cache
+
+        around_payload = _load_fixture("empty_result")
+        around_route = respx.get(_AMAP_URL).mock(
+            return_value=httpx.Response(200, json=around_payload)
+        )
+        district_route = respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(200, json=_district_payload("110000", "0,0"))
+        )
+        _adcode_coord_cache.clear()
+
+        await amap_search_restaurants(
+            keywords=["火锅"],
+            location="116.433840,39.908740",  # 已是坐标
+            radius_meters=1500,
+            min_rating=3.5,
+            max_results=10,
+            client=_make_client(),
+        )
+
+        # place/around 收原坐标
+        sent_location = dict(around_route.calls.last.request.url.params).get("location")
+        assert sent_location == "116.433840,39.908740"
+        # district API 没被调
+        assert district_route.call_count == 0
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_adcode_translate_failure_falls_back_through_node(self) -> None:
+        """district 查询失败时 wrapper 抛 `AmapDistrictNotFoundError` — 由
+        `search_restaurants._search_one` 捕获 → 该 cuisine 列表为空 + error entry,
+        不让异常传到上层 (F004 §3.4)."""
+        from app.core.exceptions import AmapDistrictNotFoundError
+        from app.mcp.amap.restaurant import _adcode_coord_cache
+
+        respx.get(_DISTRICT_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "status": "1",
+                    "info": "OK",
+                    "infocode": "10000",
+                    "count": "0",
+                    "districts": [],
+                },
+            )
+        )
+        _adcode_coord_cache.clear()
+
+        with pytest.raises(AmapDistrictNotFoundError):
+            await amap_search_restaurants(
+                keywords=["火锅"],
+                location="999999",
+                radius_meters=1500,
+                min_rating=3.5,
+                max_results=10,
+                client=_make_client(),
+            )
+
