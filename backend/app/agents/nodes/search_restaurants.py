@@ -11,13 +11,21 @@ cuisine_id 餐厅列表为空, summary 跳过"). 整个 Node 不会抛错给上�
 + F030 §6.1: 本 Node 调用 `place/around` 仅收 `lng,lat` 坐标, 收到 adcode /
 城市名 / 中文地标时统一 fallback 到国贸坐标并 WARN log (防止 silent fallback
 再次掩盖 bug).
+
+精度优先级 (F051 §6.4 — 修「只到区级」bug):
+1. `default_location["longitude"]` + `["latitude"]` — geolocation 一次性捕获的
+   原始坐标, 是用户真正的位置, 直接当 `place/around` 的 location.
+2. `default_location["district_adcode"]` (→ city_adcode) — 区级中心点, 当
+   上一步无坐标时 (e.g. 老用户 / 手动选到城市级).
+3. `_DEFAULT_LOCATION` (国贸) — 兜底, 配 WARN log 含 user_id + 原始值.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import cast
+import re
+from typing import Any, cast
 
 from app.agents.state import AgentState
 from app.core.exceptions import AmapError
@@ -31,6 +39,9 @@ logger = logging.getLogger(__name__)
 # adcode 形式. 两者都指向北京国贸, 语义一致.
 _DEFAULT_LOCATION = "116.433840,39.908740"  # 国贸 (与 dev_route.py 习惯一致)
 _DEFAULT_LOCATION_LABEL = "国贸"
+
+# 6 位数字 adcode (例如 "110000")
+_ADCODE_PATTERN = re.compile(r"^\d{6}$")
 
 
 def _is_coord(value: str) -> bool:
@@ -48,12 +59,63 @@ def _is_coord(value: str) -> bool:
     return True
 
 
+def _resolve_structured_adcode(
+    default_location: dict[str, Any], *, prefer: str = "district"
+) -> str | None:
+    """从 F051 StructuredAddress dict 抽出区/市级 adcode.
+
+    `prefer="district"`: 优先 district_adcode (餐厅搜索的语义锚点更精确),
+    缺失时 fallback 到 city_adcode.
+    """
+    if prefer == "district":
+        adcode = default_location.get("district_adcode") or default_location.get(
+            "city_adcode"
+        )
+    else:
+        adcode = default_location.get("city_adcode") or default_location.get(
+            "district_adcode"
+        )
+    if isinstance(adcode, str) and _ADCODE_PATTERN.match(adcode.strip()):
+        return adcode.strip()
+    return None
+
+
+def _resolve_structured_coord(
+    default_location: dict[str, Any],
+) -> tuple[float, float] | None:
+    """从 F051 StructuredAddress dict 抽出 (lng, lat) — 仅当两者都合法时返回.
+
+    regeo 一次性写入的原始坐标是用户精确位置 (e.g. 河庄街道某小区), 用于
+    place/around 时直接当 location, 不必再走 district_adcode → 区中心点
+    fallback (后者精度损失严重, 1.5km 半径在大区里几乎搜不到).
+
+    Returns:
+        `(longitude, latitude)` 或 None (缺失 / 类型不对). 校验后的值必
+        在 [-180, 180] / [-90, 90] — schema 已强校验, 此处只需类型 narrow.
+    """
+    lng = default_location.get("longitude")
+    lat = default_location.get("latitude")
+    if not isinstance(lng, (int, float)) or isinstance(lng, bool):
+        return None
+    if not isinstance(lat, (int, float)) or isinstance(lat, bool):
+        return None
+    return float(lng), float(lat)
+
+
 def _resolve_location(state: AgentState) -> str:
-    """解析锚点: 显式 override > 用户偏好 default_location > 国贸坐标兜底.
+    """解析锚点: 显式 override > 用户偏好高精度 lng/lat > district_adcode > 国贸坐标兜底.
 
     F030 §6.1: 仅放行 `lng,lat` 坐标; adcode / 城市名 / 中文地标 fallback
     到 `_DEFAULT_LOCATION` 并 WARN log (含 `user_id` 与原始值, 便于追溯
     silent fallback).
+
+    F051 §6.4 升级: 优先级
+      1. `state["location_override"]` (API 显式传 — 已是 lng,lat 或 adcode)
+      2. `default_location["longitude"]` + `["latitude"]` (regeo 原始坐标)
+      3. `default_location["district_adcode"]` (→ city_adcode)
+      4. `_DEFAULT_LOCATION` (国贸) + WARN log
+    wrapper 负责 translate adcode → "lng,lat"; 翻译失败时 fallback 到
+    国贸坐标 + WARN log.
     """
     rid = get_request_id() or "-"
     user_id = str(state.get("user_id") or "-")
@@ -63,19 +125,40 @@ def _resolve_location(state: AgentState) -> str:
         v = override.strip()
         if _is_coord(v):
             return v
+        # override 也可能是 adcode — 透传给 wrapper, 由其 translate
+        if _ADCODE_PATTERN.match(v):
+            return v
         logger.warning(
-            "search_restaurants location_override 非坐标, fallback rid=%s user=%s override=%s",
+            "search_restaurants location_override 非坐标/非adcode, fallback "
+            "rid=%s user=%s override=%s",
             rid, user_id, v,
         )
     prefs = state.get("user_preferences")
     if prefs is not None:
         default_loc = prefs.get("default_location")
-        if isinstance(default_loc, str) and default_loc.strip():
+        if isinstance(default_loc, dict):
+            # 优先级 1: regeo 一次性捕获的原始坐标 (F051 §6.4 修精度 bug)
+            coord = _resolve_structured_coord(default_loc)
+            if coord is not None:
+                lng, lat = coord
+                return f"{lng},{lat}"
+            # 优先级 2: district_adcode → city_adcode fallback
+            adcode = _resolve_structured_adcode(default_loc, prefer="district")
+            if adcode is not None:
+                return adcode
+            logger.warning(
+                "search_restaurants prefs.default_location 是 dict 但 "
+                "lng/lat 与 adcode 都不可用, fallback "
+                "rid=%s user=%s location=%s",
+                rid, user_id, default_loc,
+            )
+        elif isinstance(default_loc, str) and default_loc.strip():
             v = default_loc.strip()
-            if _is_coord(v):
+            if _is_coord(v) or _ADCODE_PATTERN.match(v):
                 return v
             logger.warning(
-                "search_restaurants prefs.default_location 非坐标, fallback rid=%s user=%s location=%s",
+                "search_restaurants prefs.default_location (老字符串) 非坐标/非adcode, "
+                "fallback rid=%s user=%s location=%s",
                 rid, user_id, v,
             )
     return _DEFAULT_LOCATION

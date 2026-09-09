@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import operator
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 # `typing_extensions.TypedDict` is required (vs `typing.TypedDict`) because
 # Pydantic v2 — used by LangGraph 0.2.x to introspect the schema — only
@@ -32,7 +32,11 @@ UserPreferencesDict = TypedDict(
         "allergies": list[str],                # 0-N elements
         "spice_tolerance": int,                # 0-3
         "temperature_preference": Literal["cold", "room", "hot"],
-        "default_location": str | None,
+        # F051 §3.1 (2026-09-08): 由 `str | None` 升级为 `dict[str, Any] | None`
+        # (StructuredAddress JSON 序列化形态). F030 / F031 Node 层从
+        # `state["user_preferences"]["default_location"]["city_adcode"]` /
+        # `district_adcode` 直接读 adcode, 不再走字符串解析兜底.
+        "default_location": dict[str, Any] | None,
         "budget_lunch_min": Decimal | None,
         "budget_lunch_max": Decimal | None,
     },

@@ -38,7 +38,7 @@ DEGRADED_HEADLINE: str = "今天没合适推荐，换个口味吧"
 _SYSTEM_PROMPT: str = (
     "你是午餐决策助手的总结 Agent. "
     "请基于用户给出的偏好 / 天气 / 餐厅候选 / 决策矩阵, "
-    "输出**严格 JSON** (无 markdown 围栏, 无多余文字), 不要解释."
+    "输出**严格 JSON** 不要解释."
 )
 
 # LLM 调用的硬上限 — Summary Agent 不允许把整个 graph 卡 60 秒

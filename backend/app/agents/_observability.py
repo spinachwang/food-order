@@ -18,6 +18,12 @@ Both helpers:
 3. Honor `app.core.request_id` automatically via the logging Filter
    installed in `app/core/logging.py` — log records render `[rid=...]`
    without manual threading.
+
+Logger: `app.agents.observability`. `app/core/logging.py` pins this logger
+to DEBUG regardless of root level, so the prompt/response blocks print
+even when the operator runs with `LOG_LEVEL=INFO`. If you ever move this
+module to a new logger name, update the `loggers` entry in
+`app/core/logging._build_config` to match.
 """
 from __future__ import annotations
 
@@ -57,9 +63,9 @@ def render_messages(messages: list[Any]) -> str:
 
     Example output:
 
-        [system] (532 chars)
+        [system]
         你是"午餐决策助手"的路由 Agent ...
-        [user] (89 chars)
+        [user]
         想吃辣的 ...
 
     Truncates each message body at 4 KB to keep a single log entry bounded;
@@ -73,7 +79,7 @@ def render_messages(messages: list[Any]) -> str:
     for msg in messages:
         role = msg.get("role", "?") if isinstance(msg, dict) else "?"
         content = msg.get("content", "") or "" if isinstance(msg, dict) else ""
-        header = f"[{role}] ({len(content)} chars)"
+        header = f"[{role}]"
         parts.append(header)
         parts.append(_truncate(content))
         parts.append("")  # blank line between messages

@@ -8,8 +8,10 @@
 否则 `state["user_preferences"]["default_location"]`, 都没值时用默认城市.
 
 格式约束 (per F001 §3.5 + F031):
-- 仅放行 6 位 adcode 或城市名 (Amap /v3/weather/weatherInfo 接受).
-- 检测到 `lng,lat` 坐标 → fallback 到默认城市 + WARN log.
+- F051 升级后 `default_location` 是 `StructuredAddress` dict, 直接取
+  `city_adcode` (6 位市级 adcode) 作为 Amap weather location.
+- `location_override` 仍是 string (API 调用方传); 接受 6 位 adcode 或
+  主流城市名. 检测到 `lng,lat` 坐标 → fallback 到默认城市 + WARN log.
 - 区级地标 / 完整地址 / 中英混合 → 不在 Node 层拦截, 透传给 Amap 让它
   自行判断 (Amap 不识别时仍会触发 AMAP_LOCATION_INVALID 走降级).
 """
@@ -17,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import cast
+from typing import Any, cast
 
 from app.agents.state import AgentState
 from app.core.exceptions import AmapError
@@ -73,11 +75,26 @@ def _looks_like_coord(value: str) -> bool:
     return bool(_COORD_PATTERN.match(value.strip()))
 
 
+def _resolve_structured_city_adcode(default_location: dict[str, Any]) -> str | None:
+    """从 F051 StructuredAddress dict 抽出 city_adcode.
+
+    字段经 Pydantic 校验过, 这里只做兜底; 返回 None 时调用方走 fallback.
+    """
+    adcode = default_location.get("city_adcode")
+    if isinstance(adcode, str) and _ADCODE_PATTERN.match(adcode.strip()):
+        return adcode.strip()
+    return None
+
+
 def _resolve_location(state: AgentState) -> str:
     """解析锚点: 显式 override > 用户偏好 default_location > 默认城市.
 
     F001 §3.5 格式约束: 仅放行 adcode / 纯中文城市名; 其他 (坐标 / 楼宇地标 /
     完整地址 / 行政区 / 含数字 / 含特殊字符) → 跳过该值, fallback 到默认城市 + WARN log.
+
+    F051 升级后 (2026-09-08): `default_location` 是 StructuredAddress dict
+    (字段经 Pydantic 校验过), 直接读 `city_adcode` 作为 Amap weather location;
+    老字符串数据 (F051 §6.5 兼容) 仍走 string 校验路径.
     """
     rid = get_request_id() or "-"
 
@@ -94,12 +111,24 @@ def _resolve_location(state: AgentState) -> str:
     prefs = state.get("user_preferences")
     if prefs is not None:
         default_loc = prefs.get("default_location")
-        if isinstance(default_loc, str) and default_loc.strip():
+        # F051 升级: 优先按 StructuredAddress dict 解析
+        if isinstance(default_loc, dict):
+            adcode = _resolve_structured_city_adcode(default_loc)
+            if adcode is not None:
+                return adcode
+            _logger.warning(
+                "fetch_weather prefs.default_location 是 dict 但 city_adcode 非法, "
+                "fallback rid=%s location=%s",
+                rid, default_loc,
+            )
+        # F051 §6.5 向后兼容: 老字符串数据 (F051 升级前) 走原 string 校验
+        elif isinstance(default_loc, str) and default_loc.strip():
             v = default_loc.strip()
             if _is_valid_weather_location(v):
                 return v
             _logger.warning(
-                "fetch_weather prefs.default_location 非合法格式, fallback rid=%s location=%s",
+                "fetch_weather prefs.default_location (老字符串) 非合法格式, "
+                "fallback rid=%s location=%s",
                 rid, v,
             )
     return _DEFAULT_LOCATION

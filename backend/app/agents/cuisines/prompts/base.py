@@ -29,16 +29,16 @@ _TEMPLATE = """你是一位 {cuisine_display_name} 推荐专家。
 1. 输出一句话结论（≤30 字）：今天是否适合推荐 {cuisine_display_name}，若有代表性菜品则点名
 2. 输出 3-5 个高德搜索关键词（含菜系词 + 代表性菜名 + 风味词）
 
-【输出格式】严格 JSON，不要多余文字：
+【输出格式】JSON：
 {{
   "conclusion": "...",
   "keywords": ["...", "...", "..."],
   "matched_allergies": ["..."]
 }}
 
-【硬约束】所有 keywords 必须使用中文，禁止英文（F003 §8.2）。
+【硬约束】所有 keywords 使用中文
 
-【该菜系要点】（由各菜系 spec 自填）
+【该菜系要点】
 {cuisine_extras}
 """
 
