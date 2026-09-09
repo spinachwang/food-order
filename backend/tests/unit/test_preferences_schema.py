@@ -4,6 +4,10 @@ Pydantic v2 only wraps `ValueError` / `AssertionError` / `TypeError` raised from
 `field_validator`. The validators in `preferences.py` raise `ValueError` whose
 message is encoded `<CODE>|<message>|<details-json>`; the envelope handler
 decodes this at the HTTP boundary. Tests assert against that encoding.
+
+F051 (2026-09-08): `default_location` 字段从 `str | None` 升级为
+`StructuredAddress | None`. 本文件 `TestDefaultLocation` 覆盖结构化场景;
+`TestDefaults` 中默认值的断言保留 (默认仍是 None).
 """
 from __future__ import annotations
 
@@ -12,6 +16,7 @@ from decimal import Decimal
 import pytest
 from app.core.constants import CUISINE_IDS
 from app.schemas.preferences import PreferencesUpdate, default_cuisine_weights
+from app.schemas.structured_address import StructuredAddress
 from pydantic import ValidationError
 
 
@@ -133,6 +138,46 @@ class TestBudget:
             budget_lunch_min=Decimal("50.00"), budget_lunch_max=Decimal("50.00")
         )
         assert payload.budget_lunch_min == payload.budget_lunch_max == Decimal("50.00")
+
+
+class TestDefaultLocation:
+    """F051 §3.1 — default_location 默认 None, 接受 StructuredAddress 或 None."""
+
+    def test_default_is_none(self) -> None:
+        # 默认值仍是 None (新用户未设置地址)
+        payload = PreferencesUpdate()
+        assert payload.default_location is None
+
+    def test_none_accepted(self) -> None:
+        payload = PreferencesUpdate(default_location=None)
+        assert payload.default_location is None
+
+    def test_structured_address_accepted(self) -> None:
+        addr = StructuredAddress(
+            province="上海市",
+            province_adcode="310000",
+            city="上海市",
+            city_adcode="310100",
+            district="静安区",
+            district_adcode="310106",
+        )
+        payload = PreferencesUpdate(default_location=addr)
+        assert payload.default_location is not None
+        assert payload.default_location.city_adcode == "310100"
+        assert payload.default_location.district == "静安区"
+
+    def test_invalid_adcode_returns_invalid_structured(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            PreferencesUpdate(
+                default_location={
+                    "province": "上海市",
+                    "province_adcode": "31000",  # 5 位
+                    "city": "上海市",
+                    "city_adcode": "310100",
+                }
+            )
+        code, _, _ = _decode(exc.value)
+        assert code == "INVALID_STRUCTURED_ADDRESS"
 
 
 class TestExtraFieldsRejected:

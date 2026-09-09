@@ -1,4 +1,4 @@
-"""User preferences table (F001).
+"""User preferences table (F001 + F051).
 
 Per `spec/data-model.md` §`user_preferences` (patched in Step 0.5 to include
 `temperature_preference`):
@@ -11,12 +11,18 @@ JSON columns (`cuisine_weights`, `allergies`) use `sa_column=Column(JSON, ...)`
 explicitly because SQLModel's default mapping of `dict[str, float]` /
 `list[str]` to MySQL JSON is unreliable across SQLAlchemy versions.
 
+`default_location` (F051 §3.1 + data-model.md 修订 2026-09-08):
+由 `VARCHAR(128)` 升级为 `JSON`，承载 `StructuredAddress` 对象。
+老字符串数据由 GET 时回填为 `null`（详见
+`app/services/preferences.py` 的 `_row_to_dict`），无需数据迁移脚本。
+
 `default=dict` (NOT `default={}`) avoids the shared-mutable-default trap.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import JSON, BigInteger, Column, SmallInteger
 from sqlalchemy.dialects.mysql import BIGINT, SMALLINT
@@ -51,7 +57,13 @@ class UserPreference(SQLModel, table=True):
     )
     temperature_preference: str = Field(default="room", max_length=8, nullable=False)
 
-    default_location: str | None = Field(default=None, max_length=128, nullable=True)
+    # F051 §3.1: 字段类型由 `str | None` 升级为 `dict[str, Any] | None` (StructuredAddress
+    # 的 JSON 序列化形态); DB 列类型由 `VARCHAR(128)` 升级为 `JSON`. 老字符串数据由
+    # service 层的 `_row_to_dict` 兼容回填为 `None`.
+    default_location: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
 
     budget_lunch_min: Decimal | None = Field(
         default=None, max_digits=8, decimal_places=2, nullable=True

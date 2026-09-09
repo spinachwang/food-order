@@ -3,12 +3,13 @@
 Internal state uses TypedDict in `app/agents/state.py`. Schemas below are
 boundary types that validate input / shape output for the API.
 
-Validation rules (F001 §3 + §6):
+Validation rules (F001 §3 + §6, F051 §3.1/§3.2):
 - `cuisine_weights` keys ∈ `CUISINE_IDS`; values ∈ [0, 1]
 - `allergies` elements ∈ `ALLERGY_VALUES`
 - `spice_tolerance` ∈ [0, 3]
 - `temperature_preference` ∈ {cold, room, hot}
 - `budget_lunch_min` ≤ `budget_lunch_max`; both ≥ 0
+- `default_location` ∈ `StructuredAddress` | None (F051 §3.1 — 升级自 str | None)
 
 Validator → envelope mapping
 ----------------------------
@@ -27,7 +28,6 @@ Note: `Decimal` serializes to JSON as string by default in Pydantic v2 — match
 """
 from __future__ import annotations
 
-import json
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -39,18 +39,14 @@ from app.core.constants import (
     SPICE_TOLERANCE_RANGE,
     TEMPERATURE_VALUES,
 )
+from app.schemas._validation_error import _validation_error
+from app.schemas.structured_address import StructuredAddress
 
 # ----- Shared bounds -----
 
 
 _MinSpice, _MaxSpice = SPICE_TOLERANCE_RANGE
 _CUISINE_SET = frozenset(CUISINE_IDS)
-
-
-def _validation_error(code: str, message: str, details: object | None = None) -> ValueError:
-    """Build a ValueError whose message encodes the DomainError envelope fields."""
-    details_json = "null" if details is None else json.dumps(details, ensure_ascii=False)
-    return ValueError(f"{code}|{message}|{details_json}")
 
 
 class _PreferencesBase(BaseModel):
@@ -62,7 +58,10 @@ class _PreferencesBase(BaseModel):
     allergies: list[str] = []
     spice_tolerance: int = 0
     temperature_preference: str = "room"
-    default_location: str | None = None
+    # F051 §3.1: default_location 从 `str | None` 升级为 `StructuredAddress | None`.
+    # StructuredAddress 自身的 field_validator 已校验 adcode / poi_id / 名称 / door_no 正则,
+    # 此处只需声明类型, 无需重复校验.
+    default_location: StructuredAddress | None = None
     budget_lunch_min: Decimal | None = None
     budget_lunch_max: Decimal | None = None
 

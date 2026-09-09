@@ -3,12 +3,22 @@
 `load_preferences` / `upsert_preferences` are the service-layer wrappers around
 the SQLModel row. They take a `Session` explicitly (no FastAPI Depends) so that
 agents and tests can call them without dragging in HTTP plumbing.
+
+F051 升级 (2026-09-08):
+- `default_location` 字段类型由 `str | None` 升级为 `StructuredAddress | None`
+  (内部用 `dict[str, Any] | None` 表示 JSON 序列化形态).
+- `upsert_preferences` 从 `PreferencesUpdate` 取 Pydantic 校验过的对象, 序列化为
+  dict 写入 DB.
+- `load_preferences` 从 DB 读出 dict 后回填给 state; 遇到**老数据**
+  (`default_location` 仍是字符串) 时**回填为 None** (前端兜底到 IP 城市,
+  F001 §3.5.2 / F051 §6.5), 不抛错, 保证 GET 永远返回 200.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,6 +29,7 @@ from app.schemas.preferences import PreferencesUpdate, default_cuisine_weights
 
 __all__ = ["load_preferences", "upsert_preferences"]
 
+_logger = logging.getLogger(__name__)
 
 # Lookup the BIGINT `id` and the `user_id` columns once at import time; this
 # avoids leaking SQLModel typing tricks into the service body.
@@ -31,6 +42,7 @@ def load_preferences(session: Session, user_id: str) -> UserPreferencesDict:
     """Return existing preferences, or fresh defaults if no row exists.
 
     F001 §2 acceptance: GET returns defaults rather than 404.
+    F051 §6.5 compat: 老数据 `default_location` 是字符串 → 回填 None, 不抛错.
     """
     row = session.get(UserPreference, _row_id_for_user(session, user_id))
     if row is None:
@@ -42,7 +54,11 @@ def load_preferences(session: Session, user_id: str) -> UserPreferencesDict:
 def upsert_preferences(
     session: Session, user_id: str, payload: PreferencesUpdate
 ) -> UserPreferencesDict:
-    """Full overwrite upsert (F001 §2 — PUT covers all fields)."""
+    """Full overwrite upsert (F001 §2 — PUT covers all fields).
+
+    `payload.default_location` 已是 Pydantic 校验过的 `StructuredAddress` 对象
+    (或 None). SQLModel 通过 `model_dump()` 序列化为 dict 写入 JSON 列.
+    """
     row_id = _row_id_for_user(session, user_id)
     row = session.get(UserPreference, row_id)
     if row is None:
@@ -53,7 +69,10 @@ def upsert_preferences(
     row.allergies = list(payload.allergies)
     row.spice_tolerance = payload.spice_tolerance
     row.temperature_preference = payload.temperature_preference
-    row.default_location = payload.default_location
+    # F051 §3.1: payload.default_location 是 StructuredAddress 或 None
+    row.default_location = (
+        payload.default_location.model_dump() if payload.default_location is not None else None
+    )
     row.budget_lunch_min = payload.budget_lunch_min
     row.budget_lunch_max = payload.budget_lunch_max
     # updated_at is bumped automatically by SQLModel on flush in many setups;
@@ -86,10 +105,39 @@ def _row_to_dict(row: UserPreference) -> UserPreferencesDict:
         "temperature_preference": cast(
             Literal["cold", "room", "hot"], row.temperature_preference
         ),
-        "default_location": row.default_location,
+        "default_location": _coerce_default_location(row.default_location),
         "budget_lunch_min": _maybe_decimal(row.budget_lunch_min),
         "budget_lunch_max": _maybe_decimal(row.budget_lunch_max),
     }
+
+
+def _coerce_default_location(raw: Any) -> dict[str, Any] | None:
+    """读取 DB 的 `default_location` JSON, 兼容老字符串数据.
+
+    F051 §6.5 兼容策略:
+    - `None` / `dict` (新结构化对象) → 原样返回
+    - `str` (老字符串, 例如 `"国贸三期"` / `"北京"`) → 回填 None,
+      不抛错; 调用方 (前端) 会兜底到 IP 城市, 引导用户重新设置.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        # 老数据 — record 一条 WARNING 便于追溯; 返回 None 让前端兜底
+        _logger.warning(
+            "user_preferences.default_location 是字符串 (老数据, F051 §6.5), "
+            "回填 None 以触发前端 IP 城市兜底; original=%r",
+            raw,
+        )
+        return None
+    # 异常类型 (DB 漂移 / 序列化失败) — 也兜底为 None
+    _logger.warning(
+        "user_preferences.default_location 类型异常, 回填 None; type=%s value=%r",
+        type(raw).__name__,
+        raw,
+    )
+    return None
 
 
 def _maybe_decimal(v: Decimal | None) -> Decimal | None:
