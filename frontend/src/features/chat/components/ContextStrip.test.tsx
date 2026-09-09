@@ -25,6 +25,8 @@ const sampleAddress: StructuredAddress = {
   community: '静安嘉里中心',
   poi_id: null,
   door_no: 'B2',
+  longitude: 121.456,
+  latitude: 31.234,
 }
 
 beforeEach(() => {

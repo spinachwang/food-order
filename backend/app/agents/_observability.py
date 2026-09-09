@@ -63,9 +63,9 @@ def render_messages(messages: list[Any]) -> str:
 
     Example output:
 
-        [system]
+        [system] (13 chars)
         你是"午餐决策助手"的路由 Agent ...
-        [user]
+        [user] (5 chars)
         想吃辣的 ...
 
     Truncates each message body at 4 KB to keep a single log entry bounded;
@@ -79,7 +79,10 @@ def render_messages(messages: list[Any]) -> str:
     for msg in messages:
         role = msg.get("role", "?") if isinstance(msg, dict) else "?"
         content = msg.get("content", "") or "" if isinstance(msg, dict) else ""
-        header = f"[{role}]"
+        # Header reports the TRUE original size so operators can tell at a
+        # glance when a body has been truncated (compare with the
+        # `<... N bytes truncated>` marker that follows the body).
+        header = f"[{role}] ({len(content)} chars)"
         parts.append(header)
         parts.append(_truncate(content))
         parts.append("")  # blank line between messages

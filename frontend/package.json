@@ -23,6 +23,60 @@
     "zod": "^4.5.4",
     "zustand": "^4.5.4"
   },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "browser": true,
+      "es2022": true,
+      "node": true
+    },
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:react-hooks/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module",
+      "ecmaFeatures": { "jsx": true }
+    },
+    "plugins": ["@typescript-eslint", "react-hooks", "react-refresh"],
+    "ignorePatterns": [
+      "dist",
+      "node_modules",
+      "coverage",
+      "playwright-report",
+      "test-results",
+      "*.config.js",
+      "*.config.cjs",
+      "*.config.ts"
+    ],
+    "rules": {
+      "no-irregular-whitespace": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+      ],
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      "react-refresh/only-export-components": ["warn", { "allowConstantExport": true }],
+      "no-console": ["warn", { "allow": ["warn", "error"] }],
+      "no-debugger": "warn"
+    },
+    "overrides": [
+      {
+        "files": ["e2e/**/*.ts", "**/*.test.ts", "**/*.test.tsx"],
+        "env": { "node": true },
+        "rules": {
+          "no-console": "off",
+          "@typescript-eslint/no-explicit-any": "off"
+        }
+      }
+    ]
+  },
   "devDependencies": {
     "@playwright/test": "^1.45.0",
     "@testing-library/jest-dom": "^6.4.8",

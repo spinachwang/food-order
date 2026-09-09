@@ -69,6 +69,8 @@ describe('api-client envelope handling', () => {
         community: null,
         poi_id: null,
         door_no: null,
+        longitude: 121.456,
+        latitude: 31.234,
       },
       budget_lunch_min: 20,
       budget_lunch_max: 60,

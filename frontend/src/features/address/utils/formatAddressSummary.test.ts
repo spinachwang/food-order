@@ -19,6 +19,8 @@ function addr(overrides: Partial<StructuredAddress> = {}): StructuredAddress {
     community: null,
     poi_id: null,
     door_no: null,
+    longitude: null,
+    latitude: null,
     ...overrides,
   }
 }
