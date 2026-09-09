@@ -61,7 +61,18 @@
     "allergies": ["peanut"],
     "spice_tolerance": 2,
     "temperature_preference": "room",
-    "default_location": "国贸三期",
+    "default_location": {
+      "province": "上海市",
+      "province_adcode": "310000",
+      "city": "上海市",
+      "city_adcode": "310100",
+      "district": "静安区",
+      "district_adcode": "310106",
+      "street": null,
+      "community": "静安嘉里中心",
+      "poi_id": "B0FFF...",
+      "door_no": "B2"
+    },
     "budget_lunch_min": "20.00",
     "budget_lunch_max": "60.00"
   }
@@ -80,7 +91,18 @@
   "allergies": ["peanut"],
   "spice_tolerance": 2,
   "temperature_preference": "room",
-  "default_location": "国贸三期",
+  "default_location": {
+    "province": "上海市",
+    "province_adcode": "310000",
+    "city": "上海市",
+    "city_adcode": "310100",
+    "district": "静安区",
+    "district_adcode": "310106",
+    "street": null,
+    "community": "静安嘉里中心",
+    "poi_id": "B0FF...",
+    "door_no": "B2"
+  },
   "budget_lunch_min": "20.00",
   "budget_lunch_max": "60.00"
 }
@@ -98,11 +120,11 @@
 {
   "message": "今天想吃辣的",
   "session_id": "可选 UUID，用于多轮上下文",
-  "location_override": "可选，覆盖默认位置（格式约束见 F001 §3.5：6 位 adcode 或主流城市名）"
+  "location_override": "可选，覆盖默认位置（6 位 adcode 或主流城市名；详见 F001 §3.5.2 备注）。M1 推荐让前端 addr-edit 弹层写入 default_location 而非 location_override；location_override 保留作为单次覆盖逃生口"
 }
 ```
 
-> `default_location` / `location_override` 格式约束详见 [F001 §3.5](features/F001-user-preferences.md)。
+> `default_location` 结构化对象契约详见 [F001 §3.5.1](features/F001-user-preferences.md) + [F051 §3.1](features/F051-structured-address.md)。
 
 - **响应 200**：`Content-Type: text/event-stream`
 

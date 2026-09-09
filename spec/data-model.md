@@ -26,9 +26,11 @@
 
 | 表 | 用途 | Spec |
 |---|---|---|
-| `user_preferences` | 用户口味偏好（菜系权重 / 忌口 / 预算 / 默认位置） | F001 |
+| `user_preferences` | 用户口味偏好（菜系权重 / 忌口 / 预算 / 默认位置） | F001 + F051 |
 
 > M1 不建 `user_feedback` 表；feedback 整体延后到 M2。
+
+> **`default_location` 字段类型迁移**（F051 升级，2026-09-08）：原 `VARCHAR(128)` → `JSON`。由 Alembic migration 提供迁移脚本；老字符串数据在 GET 时回填为 `null`（详见 [F001 §3.5.2 兼容策略](features/F001-user-preferences.md)），无需数据清洗脚本。
 
 ---
 
@@ -44,7 +46,7 @@
 | `allergies` | JSON | NOT NULL DEFAULT '[]' | `["peanut", "shellfish", ...]`，枚举值见 F001 §3 |
 | `spice_tolerance` | TINYINT UNSIGNED | NOT NULL DEFAULT 0 | 0=不吃辣 / 1=微辣 / 2=中辣 / 3=重辣 |
 | `temperature_preference` | VARCHAR(8) | NOT NULL DEFAULT 'room' | 温度偏好：`"cold"` 冰镇 / 凉拌 / `"room"` 常温 / `"hot"` 热乎；详见 F001 §3.4 |
-| `default_location` | VARCHAR(128) | NULL | 默认搜索锚点（6 位 adcode 或主流城市名；详见 F001 §3.5），由用户设置 |
+| `default_location` | JSON | NULL | 用户结构化默认位置（[F001 §3.5.1](features/F001-user-preferences.md) `StructuredAddress` 对象 / [F051 §3.1](features/F051-structured-address.md)）；前端选址组件产生，含 city_adcode / district_adcode 等必填字段；老字符串数据 GET 时回填为 `null`（见 F001 §3.5.2 兼容策略） |
 | `budget_lunch_min` | DECIMAL(8,2) | NULL | 午餐预算下限（元），可空 |
 | `budget_lunch_max` | DECIMAL(8,2) | NULL | 午餐预算上限（元），可空；**包含配送费**（即"用户实际愿意为一份外卖付出的总价"上限，含餐品 + 打包费 + 平台配送费） |
 | `created_at` | DATETIME(3) | NOT NULL | |

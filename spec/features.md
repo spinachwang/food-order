@@ -50,7 +50,8 @@
 
 ### Web 聊天壳（前端）
 
-- [ ] **F050**：Web 聊天窗口（Vite + React）
+- [ ] **F050**：[Web 聊天窗口（Vite + React）](features/F050-chat-shell.md)
+- [ ] **F051**：[结构化地址选择器](features/F051-structured-address.md) — 替代 `window.prompt`，用 5 级选址组件（省/市/区/商圈/小区/门牌号）产出结构化 `default_location`；依赖高德 `/config/district` + `regeo` + F030 `place/text`（M1 落地，取代 F050 §8 #5 原"M2 接高德选址组件"计划）
 
 ---
 
