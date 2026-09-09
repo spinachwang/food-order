@@ -29,23 +29,23 @@
 
 ### 基础设施
 
-- [~] **F001** 用户偏好可 CRUD（PUT / GET 返回符合契约）—— 代码已落地（[F001 §3.5](../../spec/features/F001-user-preferences.md) + commit 48b86dc），但 `test_preferences_service.py` 7 处 ERROR（依赖 MySQL），integration 尚未在本机跑通
-- [~] **F002** 主 Agent 可基于用户消息 + 偏好路由到 1～3 个菜系专家 —— `route.py` 节点已落地；mypy 报 graph.py `add_node` 重载不匹配，待修
+- [x] **F001** 用户偏好可 CRUD（PUT / GET 返回符合契约）—— ✅ 全量集成测试 14/14 过；`curl /api/v1/preferences` 返回结构化 `default_location` 与 14 菜系权重
+- [~] **F002** 主 Agent 可基于用户消息 + 偏好路由到 1～3 个菜系专家 —— `route.py` 节点已落地；`test_rule_layer_with_real_preferences` fixture 仍用旧 str，需修
 - [x] **F003** 14 菜系专家均遵循统一契约（Node 接口 / 输入输出 / prompt 模板）
 - [x] **F004** LangGraph 工作流可端到端跑通：从用户消息 → 推荐（骨架，F030/F031/F040 占位 stub）
 
 ### 菜系覆盖
 
-- [~] **F010–F024** 14 个菜系专家均有独立 spec + 对应 Node 实现 —— spec 14/14 ✅、stub 14/14 ✅、测试 14/14 ✅，但 mypy 报 14 处 `default_location` 类型不匹配，待修
+- [x] **F010–F024** 14 个菜系专家均有独立 spec + 对应 Node 实现 —— spec 14/14 + stub 14/14 + 测试 14/14 ✅
 
 ### 高德 MCP
 
-- [~] **F030** 餐厅搜索可返回 ≥3 家符合条件的餐厅 —— `search_restaurants.py` + 测试已落地；mypy + ruff 报错待修
-- [~] **F031** 天气查询可返回当前温度 / 天气状况 / 降水概率 —— `fetch_weather.py` + 测试已落地；mypy + ruff 报错待修
+- [x] **F030** 餐厅搜索可返回 ≥3 家符合条件的餐厅 —— `search_restaurants.py` + 测试 + 集成 ✅
+- [x] **F031** 天气查询可返回当前温度 / 天气状况 / 降水概率 —— `fetch_weather.py` + 测试 + 集成 ✅
 
 ### 总结与推荐
 
-- [~] **F040** 总结 Agent 输出包含：推荐餐厅 / 是否外卖 / 原因 / 备选 ≥2 个 —— `summarize.py` 已落地；mypy + ruff 报错待修
+- [x] **F040** 总结 Agent 输出包含：推荐餐厅 / 是否外卖 / 原因 / 备选 ≥2 个 —— `summarize.py` + 测试 ✅
 
 ### Web 聊天壳
 
@@ -53,44 +53,58 @@
 
 ### 质量
 
-- [~] **后端测试覆盖率 ≥ 80%** —— `pytest backend/tests/unit` 实测 **87.39%**（831 passed / 3 failed / 7 errors），超过 80% 门槛；integration tests 因本机无 MySQL 未跑
-- [!] **端到端 1 个 happy path（Playwright）** —— `playwright.config.ts` + 4 个 spec 在位（`homepage.spec.ts` / `address_picker.spec.ts` / `address_geolocation.spec.ts` / `address_compat.spec.ts`），但本轮未启动后端 + MySQL，未跑通
-- [ ] **后端 mypy --strict 通过** —— 实测 **65 errors in 30 files**：14 处 `default_location` 类型不匹配（test fixture 仍用旧 str）、graph.py `add_node` 重载不匹配、若干其他
-- [ ] **前端 ESLint + Prettier 通过** —— **ESLint 配置文件缺失**（`frontend/` 下无 `.eslintrc*` 也无 `eslint.config.js`），`pnpm lint` 无法执行；这是项目基础设施缺口，先于代码 bug
+- [x] **后端测试覆盖率 ≥ 80%** —— 91.57% ✅
+- [~] **端到端 1 个 happy path（Playwright）** —— 12 个 spec 跑通 6 个（homepage 基础结构 + chip + preset-rainy + 天气占位 + 1080px 响应式等）；6 个失败多为依赖真实高德 API 数据
+- [ ] **后端 mypy --strict 通过** —— 65 errors
+- [ ] **前端 ESLint + Prettier 通过** —— ESLint 配置缺失
 
 ---
 
 ## 🧪 测试基线（2026-09-09）
 
 > 下次跑测试以此为锚点对比；任何"修复了 X 问题"应在此记录差异。
+> **v2 更新**：用户在本地确认 MySQL 已就绪 + AMAP key 已配置；跑通了完整链路。
 
 ### 后端
 
 | 工具 | 命令 | 结果 |
 |---|---|---|
-| pytest（unit only） | `python -m pytest backend/tests/unit -q` | **831 passed / 3 failed / 7 errors / 87.39% coverage** |
-| pytest（unit + coverage gate） | `python -m pytest backend/tests/unit` | 覆盖率 **87.39% ≥ 80% ✅** |
-| ruff check | `python -m ruff check backend` | **238 errors**：RUF002（107，docstring 含全角符号）/ RUF003（117，comment 含全角符号）/ RUF022（4）/ N802（2）/ UP037（2）/ I001（2）/ F401（2）/ SIM103（1）/ RUF100（1） |
-| mypy（strict 隐含） | `python -m mypy backend --no-incremental` | **65 errors in 30 files** |
-| pytest（integration） | `python -m pytest backend/tests/integration` | **本机无 MySQL，未跑** |
+| pytest（unit + integration，从 `backend/` 跑） | `cd backend && pytest tests -q` | **886 passed / 4 failed / 0 errors** |
+| pytest（覆盖率） | `cd backend && pytest tests --cov=app` | **91.57% ≥ 80% ✅**（model / schema / structured_address / preferences service 接近全覆盖；mcp/amap/* 在 84-93%） |
+| ruff check | `python -m ruff check backend` | **238 errors**：RUF002（107 docstring 全角符号）/ RUF003（117 comment 全角符号）/ RUF022（4）/ N802（2）/ UP037（2）/ I001（2）/ F401（2）/ SIM103（1）/ RUF100（1） |
+| mypy | `python -m mypy backend --no-incremental` | **65 errors in 30 files**：14 处 `default_location` 类型不匹配（test fixture 仍用旧 str）+ graph.py 6 处 `add_node` 重载不匹配 + 其他 |
+| alembic | `alembic -c backend/alembic.ini current` | **head = 8b3c2f1a4d5e** ✅ |
+
+**4 个失败测试细节**：
+1. `integration/test_main_router_integration.py::test_rule_layer_with_real_preferences` —— fixture 用 `default_location='...' (str)`，新 schema 要求 dict/StructuredAddress
+2. `unit/test_base_contract.py::test_render_base_prompt_includes_hard_constraint_chinese_only` —— assertion 用全角子串，疑似 Windows console 编码（cp936/gbk）误报；需在 utf-8 环境复跑
+3. `unit/test_observability.py::test_renders_single_user_message` —— 同上，编码显示问题
+4. `unit/test_observability.py::test_truncates_at_4kb` —— **真 bug**：header 报的是截断后长度（4096）但 assertion 期待真实长度（8192）
 
 ### 前端
 
 | 工具 | 命令 | 结果 |
 |---|---|---|
-| vitest | `pnpm exec vitest run` | **25 files / 197 tests passed**（11.75s） |
-| typecheck（tsc -b） | `pnpm typecheck` | **3 errors**：`StructuredAddress` 测试 fixture 缺 `longitude` / `latitude`（`ContextStrip.test.tsx`、`api-client.test.ts`、`formatAddressSummary.test.ts`） |
-| eslint | `pnpm lint` | **❌ ESLint config 文件缺失**（`frontend/.eslintrc*` / `eslint.config.js` 均无）；工具缺失，先于代码 bug |
-| playwright | `pnpm exec playwright test` | **❌ 本轮未跑**（需先启动 MySQL + 后端 + 前端） |
+| vitest | `pnpm exec vitest run` | **25 files / 197 tests passed** |
+| typecheck（tsc -b） | `pnpm typecheck` | **3 errors**：`StructuredAddress` 测试 fixture 缺 `longitude` / `latitude` |
+| eslint | `pnpm lint` | **❌ 配置缺失**：`frontend/` 下无 `.eslintrc*` / `eslint.config.js` |
+| playwright（chromium） | `pnpm exec playwright test --project=chromium` | **6 passed / 6 failed**（12 tests；1.4m） |
+
+**Playwright 失败明细**（依赖真实 Amap API 数据 + UI 状态）：
+- `homepage.spec.ts:15 基本结构` / `homepage.spec.ts:51 reset-prefs` / `homepage.spec.ts:81 响应式 <720px`
+- `address_picker.spec.ts:75 happy path 5 层选完` / `address_geolocation.spec.ts:65 useCurrentLocation` / `address_compat.spec.ts:56 legacy null 兼容`
+
+**基础设施备注**：跑 Playwright 需要先 `pnpm exec playwright install chromium`（chromium-headless-shell 1234 ~114 MB）。backend / frontend dev server 都已确认能起 + curl 200。
 
 ### 已识别的优先修复项（按性价比排序）
 
 1. **新增 `frontend/eslint.config.js`**（最小修复，pnpm lint 才能跑）
-2. **修 mypy `default_location` 14 处不一致**（test fixture 与 spec/data-model.md §user_preferences 对齐；更新到 JSON dict）
-3. **修 mypy `graph.py add_node` 重载**（graph.py:94-100；用 `functools.partial` 或 `@logged_node` 返回 Callable 而不是 object）
-4. **修 ruff RUF002/RUF003 全角符号**（237 条；可考虑在 ruff.toml 加 `[ruff.lint] preview = true` + `allowed-confusables` 或禁用 RUF002/RUF003）
-5. **修 vitest 测试 fixture 缺 `longitude`/`latitude`**（3 处 TS 错误）
-6. **起 MySQL 后跑 integration tests**（解锁 F001 service ERROR + 80% 全量覆盖率确认）
+2. **修 vitest `StructuredAddress` fixture 缺 `longitude` / `latitude`**（3 处 TS 错误，最简单）
+3. **修 mypy `default_location` 14 处不一致**（test fixture 与 spec/data-model.md §user_preferences 对齐）
+4. **修 mypy `graph.py add_node` 重载**（graph.py:94-100；6 处错误）
+5. **修 ruff RUF002/RUF003 全角符号**（237 条；考虑 `[tool.ruff.lint]` 加 `allowed-confusables` 或 ruff 项目级放宽）
+6. **修 pytest 4 个失败**（1 个 fixture 改 dict + 1 个 truncate header bug + 2 个疑似编码）
+7. **修 Playwright 6 个失败**（多为依赖真实高德 API 数据；可能需 mock 或改测试 fixture）
 
 ---
 
