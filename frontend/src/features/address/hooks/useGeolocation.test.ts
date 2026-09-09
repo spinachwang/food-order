@@ -22,6 +22,11 @@ const sampleRegeo: RegeoInfo = {
   formatted_address: '上海市静安区南京西路xxx号',
   longitude: 121.473701,
   latitude: 31.230416,
+  // F051 §3.2: 街道/小区/POI id/门牌号, 全部可空
+  street: '南京西路街道',
+  community: '静安嘉里中心',
+  door_no: '1788号',
+  poi_id: 'B0FFGKABCD1234567890',
 }
 
 interface MockPosition {
@@ -107,18 +112,48 @@ describe('useGeolocation', () => {
     expect(result.current.error).toMatch(/User denied/)
   })
 
-  it('regeo 失败时 status=error + ApiError', async () => {
+  it('regeo 返回 AMAP_LOCATION_INVALID → 友好中文提示', async () => {
+    mockGeolocationSuccess({
+      coords: { longitude: 121.473701, latitude: 31.230416, accuracy: 10 },
+      timestamp: Date.now(),
+    })
+    // F051 §2.4 / §7: AMAP_LOCATION_INVALID 走友好降级提示, 而不是后端原始 message.
+    // 2026-09-08 决议: 后端从 502 改为 422 (Unprocessable Entity).
+    vi.spyOn(apiClient, 'regeo').mockRejectedValue(
+      new apiClient.ApiError('AMAP_LOCATION_INVALID', '海上无数据', 422),
+    )
+    const { result } = renderHook(() => useGeolocation())
+    act(() => result.current.request())
+    await waitFor(() => expect(result.current.status).toBe('error'))
+    expect(result.current.error).toBe('无法识别当前位置，请手动选择')
+  })
+
+  it('regeo 返回 AMAP_QUOTA_EXCEEDED → 友好中文提示', async () => {
     mockGeolocationSuccess({
       coords: { longitude: 121.473701, latitude: 31.230416, accuracy: 10 },
       timestamp: Date.now(),
     })
     vi.spyOn(apiClient, 'regeo').mockRejectedValue(
-      new apiClient.ApiError('AMAP_LOCATION_INVALID', '海上无数据', 502),
+      new apiClient.ApiError('AMAP_QUOTA_EXCEEDED', 'CUQPS_HAS_EXCEEDED_THE_LIMIT', 429),
     )
     const { result } = renderHook(() => useGeolocation())
     act(() => result.current.request())
     await waitFor(() => expect(result.current.status).toBe('error'))
-    expect(result.current.error).toMatch(/海上无数据/)
+    expect(result.current.error).toBe('服务繁忙，请稍后再试')
+  })
+
+  it('regeo 返回未知 ApiError → 透传原 message', async () => {
+    mockGeolocationSuccess({
+      coords: { longitude: 121.473701, latitude: 31.230416, accuracy: 10 },
+      timestamp: Date.now(),
+    })
+    vi.spyOn(apiClient, 'regeo').mockRejectedValue(
+      new apiClient.ApiError('UNKNOWN_CODE', '原样透传', 500),
+    )
+    const { result } = renderHook(() => useGeolocation())
+    act(() => result.current.request())
+    await waitFor(() => expect(result.current.status).toBe('error'))
+    expect(result.current.error).toBe('原样透传')
   })
 
   it('retry() 重置后再次 request', async () => {

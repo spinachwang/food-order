@@ -12,7 +12,7 @@
  * 调 `request()`, 在 success 时把 RegeoInfo 折成 StructuredAddress 字段.
  */
 import { useCallback, useState } from 'react'
-import { regeo } from '../../../lib/api-client'
+import { ApiError, regeo } from '../../../lib/api-client'
 import type { RegeoInfo } from '../../chat/types'
 
 export type GeolocationStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -23,6 +23,30 @@ export interface UseGeolocationResult {
   error: string | null
   request: () => void
   reset: () => void
+}
+
+/**
+ * 把 ApiError 转成对用户友好的中文短句。F051 §2.4 / §7：
+ * - `AMAP_LOCATION_INVALID` (HTTP 422) → 「无法识别当前位置，请手动选择」
+ * - `AMAP_QUOTA_EXCEEDED` (HTTP 429) → 「服务繁忙，请稍后再试」
+ * - `AMAP_INVALID_KEY` / `AMAP_NETWORK_ERROR` → 「定位服务暂不可用」
+ * - 其它：保留原 message。
+ */
+function friendlyMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    switch (err.code) {
+      case 'AMAP_LOCATION_INVALID':
+        return '无法识别当前位置，请手动选择'
+      case 'AMAP_QUOTA_EXCEEDED':
+        return '服务繁忙，请稍后再试'
+      case 'AMAP_INVALID_KEY':
+      case 'AMAP_NETWORK_ERROR':
+        return '定位服务暂不可用'
+      default:
+        return err.message
+    }
+  }
+  return err instanceof Error ? err.message : '逆地理编码失败'
 }
 
 export function useGeolocation(): UseGeolocationResult {
@@ -48,8 +72,7 @@ export function useGeolocation(): UseGeolocationResult {
           setData(info)
           setStatus('success')
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : '逆地理编码失败'
-          setError(msg)
+          setError(friendlyMessage(err))
           setStatus('error')
         }
       },

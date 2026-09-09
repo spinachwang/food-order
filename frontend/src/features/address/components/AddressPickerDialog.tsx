@@ -16,7 +16,11 @@
  * usePutPreferences mutation hook — 跟现有架构对齐, 易测.
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { CN_CITIES, findCityByName } from '../data/cn-cities'
+import {
+  CN_PROVINCES,
+  findCityInCacheByName,
+  findProvinceByName,
+} from '../data/cn-cities'
 import { useDistrictList } from '../hooks/useDistrictList'
 import { usePlaceSearch } from '../hooks/usePlaceSearch'
 import { useGeolocation } from '../hooks/useGeolocation'
@@ -41,6 +45,14 @@ interface DraftAddress {
   community: string | null
   poi_id: string | null
   door_no: string | null
+  /**
+   * F051 §6.4 — regeo 一次性捕获的原始坐标. 持久化后, 后端
+   * search_restaurants 直接用它当 place/around 锚点, 不必走
+   * district_adcode → 区中心点 fallback (后者精度损失严重).
+   * 用户改省/市/区/商圈时一律清空 (老坐标不再代表新地址).
+   */
+  longitude: number | null
+  latitude: number | null
 }
 
 function emptyDraft(): DraftAddress {
@@ -55,6 +67,8 @@ function emptyDraft(): DraftAddress {
     community: null,
     poi_id: null,
     door_no: null,
+    longitude: null,
+    latitude: null,
   }
 }
 
@@ -106,13 +120,29 @@ export function AddressPickerDialog(): JSX.Element | null {
   const geo = useGeolocation()
 
   // geolocation 成功 → 自动填充 city / district (跳过 province, 让用户选)
+  // F051 §3.2 + §5.2: regeo `extensions=all` 会返回街道/小区/POI id/门牌号
+  // (高德偶发缺失 → 全部 string | null, 自动 fallback 到 None).
+  // F051 §6.4: 同时持久化 `longitude` / `latitude`, 供后端当 place/around 锚点,
+  // 避免「整个区只搜到 1.5km 内 POI」的精度 bug.
   useEffect(() => {
     if (geo.status !== 'success' || !geo.data) return
-    const { province, city, district, adcode } = geo.data
-    // 找省级 cache (regeo 给 province 文本 → adcode 是 city 级的 6 位)
-    const matchedProvince = findCityByName(province)
-    // city: 用 regeo 返回的 city 名 + 把它当市级 cache 查 adcode
-    const matchedCity = findCityByName(city)
+    const {
+      province,
+      city,
+      district,
+      adcode,
+      street,
+      community,
+      door_no,
+      poi_id,
+      longitude,
+      latitude,
+    } = geo.data
+    // 省级 cache: regeo 给 province 文本 → 省级 adcode
+    const matchedProvince = findProvinceByName(province)
+    // 市级 cache: regeo 给 city 名 → 市级 adcode (F051 §4 bug 修复:
+    // 之前误用省级 cache 查市级名, fallback 到区级 adcode 是错的)
+    const matchedCity = findCityInCacheByName(city)
     setDraft((d) => ({
       ...d,
       province: matchedProvince?.name ?? province,
@@ -121,7 +151,14 @@ export function AddressPickerDialog(): JSX.Element | null {
       city_adcode: matchedCity?.adcode ?? adcode,
       district: district,
       district_adcode: adcode,
-      // 商圈/小区/门牌号保留为 null — geolocation 只能定位到区
+      // 细粒度: 直接透传, AMAP 给啥就填啥 — 全 None 也合法 (区级即可)
+      street,
+      community,
+      door_no,
+      poi_id,
+      // 一次性坐标: 后端 search_restaurants 直接用, 不再走 district 中心点
+      longitude,
+      latitude,
     }))
   }, [geo.status, geo.data])
 
@@ -138,6 +175,8 @@ export function AddressPickerDialog(): JSX.Element | null {
       community: draft.community,
       poi_id: draft.poi_id,
       door_no: draft.door_no,
+      longitude: draft.longitude,
+      latitude: draft.latitude,
     }
     // 必填字段未填齐 → 当作 null (摘要为空)
     if (!obj.province || !obj.province_adcode || !obj.city || !obj.city_adcode) {
@@ -149,9 +188,12 @@ export function AddressPickerDialog(): JSX.Element | null {
   const summary = formatAddressSummary(draftStructured)
 
   // ---- 级联变更 handler ----
+  // 改省/市/区/小区 → 老坐标已不再代表新地址, 一律清空 lng/lat
+  // (F051 §6.4: 后端 search_restaurants 会用持久化的坐标当 place/around 锚点,
+  // 留着会指向错位置 → 1.5km 半径根本搜不到).
   const onProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const name = e.target.value
-    const matched = findCityByName(name)
+    const matched = findProvinceByName(name)
     setDraft((d) => ({
       ...d,
       province: matched?.name ?? name,
@@ -164,14 +206,18 @@ export function AddressPickerDialog(): JSX.Element | null {
       community: null,
       poi_id: null,
       door_no: d.door_no,
+      longitude: null,
+      latitude: null,
     }))
   }
 
   const onCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const name = e.target.value
-    // 在 cityList (省的下属) 中找匹配的 adcode
+    // 在 cityList (省的下属) 中找匹配的 adcode — 也查市级 cache (用户手敲
+    // 已知市级但 district 接口可能为空时, 例如直辖市)
     const matched =
-      cityList.find((c) => c.name === name) ?? findCityByName(name)
+      cityList.find((c) => c.name === name) ??
+      findCityInCacheByName(name)
     setDraft((d) => ({
       ...d,
       city: matched?.name ?? name,
@@ -182,6 +228,8 @@ export function AddressPickerDialog(): JSX.Element | null {
       community: null,
       poi_id: null,
       door_no: d.door_no,
+      longitude: null,
+      latitude: null,
     }))
   }
 
@@ -197,6 +245,10 @@ export function AddressPickerDialog(): JSX.Element | null {
       community: null,
       poi_id: null,
       door_no: d.door_no,
+      // 区级变更 → 老坐标大概率仍在该区附近, 但精度不可控, 一律清空
+      // (避免「区中心点 vs 用户真实位置」混用造成 5-10km 偏差)
+      longitude: null,
+      latitude: null,
     }))
   }
 
@@ -206,17 +258,28 @@ export function AddressPickerDialog(): JSX.Element | null {
       community: e.target.value || null,
       poi_id: null,
       door_no: d.door_no,
+      longitude: null,
+      latitude: null,
     }))
   }
 
+  // 用户选了具体 POI → 顺手把高德返回的坐标回填进 draft.
+  // F051 §6.4 修复: 之前这里把 lng/lat 清空, 导致保存后只剩 district_adcode,
+  // 后端 search_restaurants 走 wrapper 的 district center fallback,
+  // 1.5km 半径在大区里几乎搜不到 → "餐厅不在具体地址附近".
+  // 现在 high-fidelity 坐标就来自这条 POI 搜索, 直接持久化即精确到小区/楼宇.
   const onCommunitySelect = (
     name: string,
     poiId: string,
+    longitude: number | null,
+    latitude: number | null,
   ) => {
     setDraft((d) => ({
       ...d,
       community: name,
       poi_id: poiId,
+      longitude,
+      latitude,
     }))
   }
 
@@ -338,7 +401,7 @@ export function AddressPickerDialog(): JSX.Element | null {
                 onChange={onProvinceChange}
               >
                 <option value="">请选择</option>
-                {CN_CITIES.map((c) => (
+                {CN_PROVINCES.map((c) => (
                   <option key={c.adcode} value={c.name}>
                     {c.name}
                   </option>
@@ -399,16 +462,19 @@ export function AddressPickerDialog(): JSX.Element | null {
               />
               {communitySearch.data && communitySearch.data.pois.length > 0 && (
                 <ul className={styles.suggest}>
-                  {communitySearch.data.pois.slice(0, 5).map((p) => (
-                    <li key={p.poi_id}>
-                      <button
-                        type="button"
-                        onClick={() => onCommunitySelect(p.name, p.poi_id)}
-                      >
-                        {p.name} · {p.address}
-                      </button>
-                    </li>
-                  ))}
+                  {communitySearch.data.pois.slice(0, 5).map((p) => {
+                    const [lng, lat] = p.location
+                    return (
+                      <li key={p.poi_id}>
+                        <button
+                          type="button"
+                          onClick={() => onCommunitySelect(p.name, p.poi_id, lng, lat)}
+                        >
+                          {p.name} · {p.address}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </label>
