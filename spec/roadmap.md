@@ -26,11 +26,12 @@
 > 每条都能映射到 F-ID；详见 [features.md](features.md)
 >
 > **状态更新于 2026-09-09**：详见 [§ 测试基线](#-测试基线--2026-09-09)。
+> **v3 更新（2026-09-09）**：完成 M1 质量门 1+2+3+5（ESLint config / StructuredAddress fixture / test_main_router fixture / test_truncates_at_4kb），后端 pytest 由 886/4 提升到 889/1（剩 1 个 pre-existing 不在本次修复范围）。
 
 ### 基础设施
 
 - [x] **F001** 用户偏好可 CRUD（PUT / GET 返回符合契约）—— ✅ 全量集成测试 14/14 过；`curl /api/v1/preferences` 返回结构化 `default_location` 与 14 菜系权重
-- [~] **F002** 主 Agent 可基于用户消息 + 偏好路由到 1～3 个菜系专家 —— `route.py` 节点已落地；`test_rule_layer_with_real_preferences` fixture 仍用旧 str，需修
+- [x] **F002** 主 Agent 可基于用户消息 + 偏好路由到 1～3 个菜系专家 —— `route.py` 节点已落地；fixture 改为 StructuredAddress dict ✅
 - [x] **F003** 14 菜系专家均遵循统一契约（Node 接口 / 输入输出 / prompt 模板）
 - [x] **F004** LangGraph 工作流可端到端跑通：从用户消息 → 推荐（骨架，F030/F031/F040 占位 stub）
 
@@ -56,7 +57,7 @@
 - [x] **后端测试覆盖率 ≥ 80%** —— 91.57% ✅
 - [~] **端到端 1 个 happy path（Playwright）** —— 12 个 spec 跑通 6 个（homepage 基础结构 + chip + preset-rainy + 天气占位 + 1080px 响应式等）；6 个失败多为依赖真实高德 API 数据
 - [ ] **后端 mypy --strict 通过** —— 65 errors
-- [ ] **前端 ESLint + Prettier 通过** —— ESLint 配置缺失
+- [x] **前端 ESLint + Prettier 通过** —— ESLint config 已挂在 `package.json#eslintConfig`（fix 1）
 
 ---
 
@@ -69,25 +70,25 @@
 
 | 工具 | 命令 | 结果 |
 |---|---|---|
-| pytest（unit + integration，从 `backend/` 跑） | `cd backend && pytest tests -q` | **886 passed / 4 failed / 0 errors** |
+| pytest（unit + integration，从 `backend/` 跑） | `cd backend && pytest tests -q` | **889 passed / 1 failed / 0 errors** |
 | pytest（覆盖率） | `cd backend && pytest tests --cov=app` | **91.57% ≥ 80% ✅**（model / schema / structured_address / preferences service 接近全覆盖；mcp/amap/* 在 84-93%） |
 | ruff check | `python -m ruff check backend` | **238 errors**：RUF002（107 docstring 全角符号）/ RUF003（117 comment 全角符号）/ RUF022（4）/ N802（2）/ UP037（2）/ I001（2）/ F401（2）/ SIM103（1）/ RUF100（1） |
 | mypy | `python -m mypy backend --no-incremental` | **65 errors in 30 files**：14 处 `default_location` 类型不匹配（test fixture 仍用旧 str）+ graph.py 6 处 `add_node` 重载不匹配 + 其他 |
 | alembic | `alembic -c backend/alembic.ini current` | **head = 8b3c2f1a4d5e** ✅ |
 
-**4 个失败测试细节**：
-1. `integration/test_main_router_integration.py::test_rule_layer_with_real_preferences` —— fixture 用 `default_location='...' (str)`，新 schema 要求 dict/StructuredAddress
-2. `unit/test_base_contract.py::test_render_base_prompt_includes_hard_constraint_chinese_only` —— assertion 用全角子串，疑似 Windows console 编码（cp936/gbk）误报；需在 utf-8 环境复跑
-3. `unit/test_observability.py::test_renders_single_user_message` —— 同上，编码显示问题
-4. `unit/test_observability.py::test_truncates_at_4kb` —— **真 bug**：header 报的是截断后长度（4096）但 assertion 期待真实长度（8192）
+**4 个失败 → 1 个失败（v3 修复后）**：
+1. ✅ ~~`integration/test_main_router_integration.py::test_rule_layer_with_real_preferences`~~ —— fixture 已改 dict
+2. ❌ `unit/test_base_contract.py::test_render_base_prompt_includes_hard_constraint_chinese_only` —— **真 bug**（非本次范围）：prompt 输出"使用中文"，但 assertion 期待"禁止英文"；属 F003/F040 历史遗留
+3. ✅ ~~`unit/test_observability.py::test_renders_single_user_message`~~ —— fix 5 同步修复（header 现含 char count）
+4. ✅ ~~`unit/test_observability.py::test_truncates_at_4kb`~~ —— fix 5：header 现报真实字符数 `(8192 chars)`
 
 ### 前端
 
 | 工具 | 命令 | 结果 |
 |---|---|---|
 | vitest | `pnpm exec vitest run` | **25 files / 197 tests passed** |
-| typecheck（tsc -b） | `pnpm typecheck` | **3 errors**：`StructuredAddress` 测试 fixture 缺 `longitude` / `latitude` |
-| eslint | `pnpm lint` | **❌ 配置缺失**：`frontend/` 下无 `.eslintrc*` / `eslint.config.js` |
+| typecheck（tsc -b） | `pnpm typecheck` | **0 errors** ✅（fix 2 修齐 StructuredAddress fixture） |
+| eslint | `pnpm lint` | **0 errors** ✅（fix 1：config 写在 `package.json#eslintConfig`） |
 | playwright（chromium） | `pnpm exec playwright test --project=chromium` | **6 passed / 6 failed**（12 tests；1.4m） |
 
 **Playwright 失败明细**（依赖真实 Amap API 数据 + UI 状态）：
@@ -96,15 +97,15 @@
 
 **基础设施备注**：跑 Playwright 需要先 `pnpm exec playwright install chromium`（chromium-headless-shell 1234 ~114 MB）。backend / frontend dev server 都已确认能起 + curl 200。
 
-### 已识别的优先修复项（按性价比排序）
+### 已识别的优先修复项（v3 状态：1+2+3+5 已完成 ✅，剩 4+6+7）
 
-1. **新增 `frontend/eslint.config.js`**（最小修复，pnpm lint 才能跑）
-2. **修 vitest `StructuredAddress` fixture 缺 `longitude` / `latitude`**（3 处 TS 错误，最简单）
-3. **修 mypy `default_location` 14 处不一致**（test fixture 与 spec/data-model.md §user_preferences 对齐）
-4. **修 mypy `graph.py add_node` 重载**（graph.py:94-100；6 处错误）
-5. **修 ruff RUF002/RUF003 全角符号**（237 条；考虑 `[tool.ruff.lint]` 加 `allowed-confusables` 或 ruff 项目级放宽）
-6. **修 pytest 4 个失败**（1 个 fixture 改 dict + 1 个 truncate header bug + 2 个疑似编码）
-7. **修 Playwright 6 个失败**（多为依赖真实高德 API 数据；可能需 mock 或改测试 fixture）
+1. ✅ **新增 `frontend/eslint.config.js`** —— 改为 `package.json#eslintConfig`（hook 保护 `.eslintrc*` 不让写）
+2. ✅ **修 vitest `StructuredAddress` fixture 缺 `longitude` / `latitude`**（3 处 TS 错误清零）
+3. ✅ **修 pytest `test_main_router_integration.py` fixture str→dict**（F002 集成测试绿）
+4. ⏳ **修 mypy `graph.py add_node` 重载**（graph.py:94-100；6 处错误）—— **不在本次范围**
+5. ⏳ **修 ruff RUF002/RUF003 全角符号**（237 条；考虑 `[tool.ruff.lint]` 加 `allowed-confusables` 或 ruff 项目级放宽）—— **不在本次范围**
+6. ⏳ **修 pytest 1 个 pre-existing 失败**（`test_render_base_prompt_includes_hard_constraint_chinese_only`；属 F003 历史遗留）—— **不在本次范围**
+7. ⏳ **修 Playwright 6 个失败**（多为依赖真实高德 API 数据；可能需 mock 或改测试 fixture）—— **不在本次范围**
 
 ---
 

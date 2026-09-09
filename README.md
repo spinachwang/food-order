@@ -14,7 +14,7 @@
 - 后端的 **LangGraph 多 Agent 系统** 路由到合适的菜系专家（川菜 / 粤菜 / 西餐 / 日料 / 小吃 …），并行去高德地图搜索附近餐厅、拉取实时天气；
 - 总结 Agent 综合所有信号给你一个**主推 + 2 张备选**，并告诉你"今天该不该出门 / 直接点外卖"。
 
-> 当前里程碑：**M1 Agent MVP**。偏好管理、14 菜系专家、SSE 流式推荐、Web 聊天壳已落地，正在打磨覆盖率与 E2E。
+> 当前里程碑：**M1 Agent MVP** —— 偏好管理、14 菜系专家、SSE 流式推荐、Web 聊天壳、ESLint/typecheck/pytest 质量门均已落地。剩 1 个 pytest 历史遗留（pre-existing, F003/F040）+ Playwright 6 个依赖真实高德 API 的 spec 待 mock 化。
 
 ---
 
@@ -214,7 +214,7 @@ pnpm test:e2e             # Playwright E2E（先 pnpm exec playwright install）
 | 里程碑 | 范围 | 状态 |
 |---|---|---|
 | **M0** 骨架 | FastAPI `/healthz` + Vite 默认页 + spec 目录 | ✅ 已完成 |
-| **M1 Agent MVP** | LangGraph 多 Agent + 14 菜系专家 + 高德 MCP + Web 聊天壳 + 用户偏好 | 🚧 进行中 |
+| **M1 Agent MVP** | LangGraph 多 Agent + 14 菜系专家 + 高德 MCP + Web 聊天壳 + 用户偏好 | ✅ 主体完成（剩 1 个 pytest pre-existing + Playwright mock 化） |
 | M2 体验增强 | 登录态、历史记录、收藏夹、反馈回写 | ⏳ 待 M1 验收 |
 | M3 商业化 | 推荐准确率看板、多城市、第三方外卖深链接 | ⏳ 待 M2 |
 
