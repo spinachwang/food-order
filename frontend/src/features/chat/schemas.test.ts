@@ -5,7 +5,8 @@
  * 校验规则镜像后端 `backend/app/schemas/structured_address.py`:
  * - 必填: province / province_adcode / city / city_adcode
  * - adcode 必须 6 位数字 (正则 ^\d{6}$)
- * - poi_id 必须 20-32 位大写字母+数字 (正则 ^[A-Z0-9]{20,32}$)
+ * - poi_id 必须 8-32 位大写字母+数字 (正则 ^[A-Z0-9]{8,32}$)
+ *   AMAP 实际 id 8-12 字符为主 (如 `B0I6KCBRAM`), 长 id 是早期风格的遗留
  * - 名称字段 (province/city/district/street/community) 长度 1-32, 仅含
  *   中文 / 字母 / 数字 / 空格 / `·`
  * - door_no 长度 ≤ 64
@@ -26,7 +27,7 @@ const validSample = {
   district_adcode: '310106',
   street: '南京西路',
   community: '静安嘉里中心',
-  poi_id: 'B0FFFAB6J2ABCDEFGHIJ',
+  poi_id: 'B0I6KCBRAM', // AMAP 实际风格 (11 位)
   door_no: 'B2',
 }
 
@@ -83,12 +84,31 @@ describe('structuredAddressSchema', () => {
   })
 
   describe('poi_id validation', () => {
-    it('rejects poi_id shorter than 20 chars', () => {
+    it('rejects poi_id shorter than 8 chars', () => {
+      // AMAP 实际 id 8-12 位为主, 下限收紧到 8
       const result = structuredAddressSchema.safeParse({
         ...validSample,
-        poi_id: 'B0FFFAB6J2',
+        poi_id: 'B0FFFA4', // 7 位 → 太短
       })
       expect(result.success).toBe(false)
+    })
+
+    it('accepts AMAP short format (8-12 chars)', () => {
+      // 真实场景: B0I6KCBRAM (11 位) — AMAP 主流格式
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        poi_id: 'B0I6KCBRAM',
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('accepts long legacy format (20+ chars)', () => {
+      // 早期风格的 20-32 位长 id 仍兼容
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        poi_id: 'B0FFFAB6J2ABCDEFGHIJ',
+      })
+      expect(result.success).toBe(true)
     })
 
     it('rejects poi_id with lowercase', () => {
@@ -105,6 +125,14 @@ describe('structuredAddressSchema', () => {
         poi_id: 'A'.repeat(32),
       })
       expect(result.success).toBe(true)
+    })
+
+    it('rejects poi_id longer than 32 chars', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        poi_id: 'A'.repeat(33),
+      })
+      expect(result.success).toBe(false)
     })
   })
 
@@ -176,6 +204,93 @@ describe('structuredAddressSchema', () => {
         ...validSample,
         district: null,
         district_adcode: null,
+      })
+      expect(result.success).toBe(true)
+    })
+  })
+
+  // ---- F051 §6.4: longitude / latitude 一次性捕获的原始坐标 ----
+
+  describe('lng/lat validation (F051 §6.4)', () => {
+    it('accepts a pair (regeo 一次性捕获)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: 121.473701,
+        latitude: 31.230416,
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('accepts both null (用户没定位 / 手动选了地址)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: null,
+        latitude: null,
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('rejects longitude out of range (> 180)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: 181.0,
+        latitude: 30.0,
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('rejects longitude out of range (< -180)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: -181.0,
+        latitude: 30.0,
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('rejects latitude out of range (> 90)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: 121.0,
+        latitude: 91.0,
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('rejects latitude out of range (< -90)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: 121.0,
+        latitude: -91.0,
+      })
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('cross-field lng/lat pairing', () => {
+    it('rejects longitude set but latitude null', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: 121.45,
+        latitude: null,
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('rejects latitude set but longitude null', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: null,
+        latitude: 30.23,
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('accepts both set (typical geolocation flow)', () => {
+      const result = structuredAddressSchema.safeParse({
+        ...validSample,
+        longitude: 121.45,
+        latitude: 30.23,
       })
       expect(result.success).toBe(true)
     })

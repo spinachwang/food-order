@@ -132,7 +132,7 @@ export function putPreferences(
 // =====================================================================
 
 /** F051 §5.1 — `/config/district` 行政区划级联.
- *  `keywords` 缺省 → 国家级根（中国 → 36 省级单位）；`subdistrict` ∈ [0, 3]. */
+ *  `keywords` 缺省 → 国家级根（中国 → 34 个省级单位）；`subdistrict` ∈ [0, 3]. */
 export function getDistricts(params: {
   keywords?: string
   subdistrict?: 0 | 1 | 2 | 3

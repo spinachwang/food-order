@@ -115,8 +115,12 @@ export function PreferencesPanel(): JSX.Element {
   const { data: remotePrefs } = usePreferencesQuery()
   const toast = useToast()
   const { start } = useAgentStream()
+  const setAddress = useChatStore((s) => s.setAddress)
 
-  // 起步时把后端拉到的 cuisine_weights / 预算同步进本地 uiPrefs (一次性)
+  // 起步时把后端拉到的 cuisine_weights / 预算 / 默认地址 同步进本地 (一次性)
+  // - taste / allergies / temperature / budget → uiPrefs (UI 控件)
+  // - default_location → chatStore.address (ContextStrip 显示)
+  // F051 §4.5: 第二次打开页面也能看到上次选的地址, 而不是兜底字符串
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => {
     if (hydrated || !remotePrefs) return
@@ -128,8 +132,11 @@ export function PreferencesPanel(): JSX.Element {
       temperature: remotePrefs.temperature_preference,
       budget: Math.round(((remotePrefs.budget_lunch_max ?? 55) - 20) / 0.6),
     })
+    // 后端是 source of truth: 即使本地已是 null 也用服务端值回填
+    // (老数据 / 用户在另一浏览器设置过 → 当前浏览器刷新即恢复)
+    setAddress(remotePrefs.default_location)
     setHydrated(true)
-  }, [hydrated, remotePrefs, setUiPrefs])
+  }, [hydrated, remotePrefs, setUiPrefs, setAddress])
 
   const totalCount = useMemo(
     () =>

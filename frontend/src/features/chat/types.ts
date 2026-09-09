@@ -87,10 +87,20 @@ export interface StructuredAddress {
   street: string | null
   /** 小区 / 楼宇（可选） */
   community: string | null
-  /** 高德 POI id（`B0FF...` 形式，20-32 位大写字母+数字） */
+  /** 高德 POI id（`B0I6KCBRAM` / `B0FF...` 形式，8-32 位大写字母+数字） */
   poi_id: string | null
   /** 门牌号 / 楼层 / 房间号（任意字符，长度 ≤ 64） */
   door_no: string | null
+  /**
+   * F051 §6.4 — regeo 一次性捕获的原始经度。
+   * 持久化后, search_restaurants 直接用它当 place/around 锚点, 不必再走
+   * district_adcode → 区中心点 fallback (后者精度损失严重, 大区里 1.5km
+   * 半径几乎搜不到). 与 latitude 同生同灭 (cross-field 校验).
+   * 范围 [-180, 180]. 与后端 `StructuredAddress.longitude` 对齐.
+   */
+  longitude: number | null
+  /** F051 §6.4 — regeo 一次性捕获的原始纬度. 范围 [-90, 90]. */
+  latitude: number | null
 }
 
 // =====================================================================
@@ -121,6 +131,18 @@ export interface RegeoInfo {
   formatted_address: string
   longitude: number
   latitude: number
+  /**
+   * F051 §3.2 — 街道/小区/POI id/门牌号, 来自高德 `extensions=all` 响应.
+   * 全部 `string | null` (AMAP 偶发缺失, e.g. 海上 / 边界外).
+   * `street` ← `addressComponent.township`
+   * `community` ← `addressComponent.neighborhood.name`
+   * `door_no` ← `addressComponent.streetNumber.number`
+   * `poi_id` ← `pois[0].id` (最近 POI, 形如 `B0FF...`)
+   */
+  street: string | null
+  community: string | null
+  door_no: string | null
+  poi_id: string | null
 }
 
 // =====================================================================

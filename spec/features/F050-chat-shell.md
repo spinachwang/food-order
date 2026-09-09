@@ -72,7 +72,7 @@
 | `save-eat` | **M1 不存**：仅本地切按钮文案为"已收藏" + toast 提示；M2 接 `POST /api/v1/feedback` 后改为真存 | 见 §8 #2 决议 2026-08-30 修订 |
 | `reset-prefs` | 把 prefs 全部恢复默认（口味全空 / 温度=`"hot"` / 心情=想吃好点 / 距离=35 / 预算=55）→ 调 F001 `PUT /api/v1/preferences` 同步 | 本地立即生效 + 后端持久化 |
 | `preset-rainy` | 一键套下雨天偏好：温度=`"hot"` / 心情=想治愈 / 距离=25；**不调后端**，仅本地 store | 用户点 `ask-agent` 时由 router 读 prefs 再计算（F050 §8 #4 决议） |
-| `addr-edit` | **M1**：浏览器 `prompt()` 浮层输入地址 → 写入 `location_override`；**M2**：接高德选址组件 | 详见 [F030 高德 MCP 周边搜索](F030-amap-restaurant-search.md) |
+| `addr-edit` | 弹出 `AddressPickerDialog`（[F051 §4](F051-structured-address.md)）5 级选择器（省 / 市 / 区 / 商圈 / 小区 / 门牌号）；保存 → PUT /api/v1/preferences 把结构化 `default_location` 持久化 + `setAddress` 即时更新 ContextStrip | 取代原 `window.prompt`；详见 [F051 结构化地址选择器](F051-structured-address.md)；**二次打开页面恢复**走 [F051 §4.5](F051-structured-address.md) / [F001 §3.5.3](F001-user-preferences.md) hydrate 契约（`PreferencesPanel` mount 时 `setAddress(remotePrefs.default_location)`） |
 
 ### 2.5 响应式断点
 
@@ -123,6 +123,7 @@ const decoder = new TextDecoder();
 
 - 不带 `X-User-Id` → 后端自动生成匿名 UUID 写入 cookie，前端缓存到 Zustand store
 - 校验失败 → toast 提示并回滚到默认
+- **hydrate 流程**（[F051 §4.5](F051-structured-address.md) / [F001 §3.5.3](F001-user-preferences.md)）：`PreferencesPanel` mount 时一次性把 `cuisine_weights / allergies / temperature_preference / budget_lunch_max` 同步进 `chatStore.uiPrefs`，把 `default_location` 同步进 `chatStore.address`，覆盖默认；保证用户第二次打开页面顶部地址条显示上次保存的真实地址，而非兜底字符串
 
 ### 4.3 偏好写：`PUT /api/v1/preferences`
 
@@ -307,7 +308,7 @@ frontend/src/
 | 2 | `save-eat` 是否真存 | **M1 不存**：仅切前端按钮文案 + toast；M2 接 `POST /api/v1/feedback` 后再真存 | §2.4 按钮契约（2026-08-30 修订） |
 | 3 | `share-eat` 链接格式 | **高德 marker URL**：`https://uri.amap.com/marker?position=lng,lat&name=xxx` | §2.4 按钮契约 |
 | 4 | `preset-rainy` 是否同步后端 | **否**：仅本地 store；下次 `ask-agent` 时由 router 读 prefs | §2.4 按钮契约 |
-| 5 | `addr-edit` 实现 | **M1**：浏览器 `prompt()` + 写入 `location_override`；**M2**：接高德选址组件 | §2.4 按钮契约 |
+| 5 | `addr-edit` 实现 | **M1 升级**：弹 `AddressPickerDialog`（[F051 §4](F051-structured-address.md)）+ PUT 结构化 `default_location`；取代原 `window.prompt` | §2.4 按钮契约（2026-09-08 修订，决议前移自原 M2 计划） |
 | 6 | 温度字段语义错位 | **新增** `temperature_preference: Literal["cold","room","hot"]` 字段；`spice_tolerance` 恢复"辣度"原意 | [F001 §3.4](F001-user-preferences.md) + §4 TypedDict + §6 错误码 |
 | 7 | "油炸" 不在 F001 枚举 | **新增** `"fried_food"` 到 F001 §3.1 ALLERGY_VALUES | [F001 §3.1](F001-user-preferences.md) |
 | 8 | 心情持久化 | **不持久化**：仅本地会话级（Zustand 临时） | §3 偏好字段映射 |
@@ -355,3 +356,4 @@ frontend/src/
 | 2026-08-30 | 0.4 | **M1 不做登录**：§5 401 行更新为"M1 后端不会返回 401" |
 | 2026-08-31 | 0.5 | §6 增补前端技术选型（决策表）：**M1 不引入任何 UI 组件库**（全部原生元素 + CSS Modules + 自定义 CSS）；新增依赖仅 `zod`；CSS 方案锁定原生 CSS + CSS Modules + `:root` OKLch token；M2 候选清单（`radix-ui` Primitives / `sonner` / `clsx` / `vaul`）写入但暂不引入；前端目录增补 `Toaster.tsx` / `useToast.ts` / `stores/toastStore.ts` / `animations.css` / `lib/clip.ts`，并按"每个组件配一个 .module.css"原则补全局部样式文件 |
 | 2026-09-07 | 0.6 | **M1 实现完成**：Phase A→F 全部落地。脚手架 (vite proxy + zod + tokens) / 通用 lib (api-client / sse / clip) + Zustand stores (toast / chat) + 3 个 hooks (useAgentStream / usePreferences / useToast) / 12 个组件 (TopBar / Hero / ContextStrip / AddressEditPopover / Footer / Toaster / Chip / Toggle / Mood / Slider / PreferencesPanel / RecommendationCard / AltCard / ThinkingLog) + ChatShell 顶层 / Playwright config + e2e spec；110 个 Vitest 单测 + 集成测试全绿，typecheck + build 全绿。视觉对齐 prototype 行 14-44 OKLch token。E2E Playwright 需要真实后端，本地未跑（CI 验收）。 |
+| 2026-09-08 | 0.7 | **addr-edit 升级**：§2.4 按钮契约从 `window.prompt` 升级为 `AddressPickerDialog`（[F051](F051-structured-address.md) 5 级选择器）；§8 #5 决议由"M2 接高德选址组件"前移到 M1。配套：`AddressEditPopover.tsx` 被替换、`AddressPickerFields.tsx` / `AddressPickerGeolocation.tsx` 新增、`useDistrictList` / `usePlaceSearch` / `useGeolocation` 3 个 hooks 新增（详见 F051 §4.3） |

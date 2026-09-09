@@ -50,23 +50,31 @@ const spiceToleranceSchema = z.number().int().min(0).max(3)
  * `backend/app/schemas/structured_address.py`:
  * - 必填: province / province_adcode / city / city_adcode
  * - adcode 必须 6 位数字 (正则 ^\d{6}$)
- * - poi_id 必须 20-32 位大写字母+数字 (正则 ^[A-Z0-9]{20,32}$)
+ * - poi_id 必须 8-32 位大写字母+数字 (正则 ^[A-Z0-9]{8,32}$)
+ *   AMAP 实际 id 8-12 字符为主 (如 `B0I6KCBRAM`), 长 id 是早期风格的遗留
  * - 名称字段长度 1-32, 仅含 中文 / 字母 / 数字 / 空格 / `·`
  * - door_no 长度 ≤ 64
+ * - longitude ∈ [-180, 180] / latitude ∈ [-90, 90] (F051 §6.4: regeo 一次性捕获,
+ *   search_restaurants 用它当 place/around 锚点, 不必再走 district 中心点 fallback)
  * - district 与 district_adcode 必须同生同灭 (cross-field, 用 refine)
+ * - longitude 与 latitude 必须同生同灭 (cross-field, 用 refine)
  */
 const _ADCODE_PATTERN = /^\d{6}$/
-const _POI_ID_PATTERN = /^[A-Z0-9]{20,32}$/
+const _POI_ID_PATTERN = /^[A-Z0-9]{8,32}$/
 const _NAME_PATTERN = /^[一-龥一-鿿A-Za-z0-9 ·]{1,32}$/
 const _NAME_MAX = 32
 const _DOOR_NO_MAX = 64
+const _LNG_MIN = -180
+const _LNG_MAX = 180
+const _LAT_MIN = -90
+const _LAT_MAX = 90
 
 const _adcodeFieldSchema = z
   .string()
   .regex(_ADCODE_PATTERN, 'adcode 必须是 6 位数字')
 const _poiIdFieldSchema = z
   .string()
-  .regex(_POI_ID_PATTERN, 'poi_id 必须是 20-32 位大写字母+数字')
+  .regex(_POI_ID_PATTERN, 'poi_id 必须是 8-32 位大写字母+数字')
 const _nameFieldSchema = z
   .string()
   .max(_NAME_MAX, `名称字段长度必须 ≤ ${_NAME_MAX}`)
@@ -74,6 +82,16 @@ const _nameFieldSchema = z
     _NAME_PATTERN,
     '名称字段仅含中文 / 字母 / 数字 / 空格 / 中点 ·',
   )
+// F051 §6.4: regeo 一次性捕获的坐标. 用 z.number() (允许 int/float, 排除 NaN/Infinity),
+// 与后端 StructuredAddress._check_longitude 镜像.
+const _lngFieldSchema = z
+  .number()
+  .min(_LNG_MIN, `longitude 必须在 [${_LNG_MIN}, ${_LNG_MAX}]`)
+  .max(_LNG_MAX, `longitude 必须在 [${_LNG_MIN}, ${_LNG_MAX}]`)
+const _latFieldSchema = z
+  .number()
+  .min(_LAT_MIN, `latitude 必须在 [${_LAT_MIN}, ${_LAT_MAX}]`)
+  .max(_LAT_MAX, `latitude 必须在 [${_LAT_MIN}, ${_LAT_MAX}]`)
 
 /**
  * 可选字段：缺省视为 null，与后端 `Optional[...] = None` 行为一致。
@@ -83,6 +101,8 @@ const _nameFieldSchema = z
 const _nullableAdcode = _adcodeFieldSchema.nullable().default(null)
 const _nullablePoiId = _poiIdFieldSchema.nullable().default(null)
 const _nullableName = _nameFieldSchema.nullable().default(null)
+const _nullableLng = _lngFieldSchema.nullable().default(null)
+const _nullableLat = _latFieldSchema.nullable().default(null)
 
 export const structuredAddressSchema = z
   .object({
@@ -96,6 +116,8 @@ export const structuredAddressSchema = z
     community: _nullableName,
     poi_id: _nullablePoiId,
     door_no: z.string().max(_DOOR_NO_MAX, `door_no 长度必须 ≤ ${_DOOR_NO_MAX}`).nullable().default(null),
+    longitude: _nullableLng,
+    latitude: _nullableLat,
   })
   .refine(
     (addr) =>
@@ -103,6 +125,14 @@ export const structuredAddressSchema = z
     {
       message: 'district 与 district_adcode 必须同生同灭',
       path: ['district_adcode'],
+    },
+  )
+  .refine(
+    (addr) =>
+      (addr.longitude === null) === (addr.latitude === null),
+    {
+      message: 'longitude 与 latitude 必须同生同灭',
+      path: ['latitude'],
     },
   )
 

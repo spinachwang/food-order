@@ -61,6 +61,25 @@ const REMOTE: UserPreferences = {
   budget_lunch_max: 53,
 }
 
+// F051 §4.5 — 用于验证 GET 返回 default_location 时 hydrate 会回写到 store
+const REMOTE_WITH_ADDRESS: UserPreferences = {
+  ...REMOTE,
+  default_location: {
+    province: '上海市',
+    province_adcode: '310000',
+    city: '上海市',
+    city_adcode: '310100',
+    district: '静安区',
+    district_adcode: '310106',
+    street: null,
+    community: '静安嘉里中心',
+    poi_id: 'B0FFHG000000000',
+    door_no: 'B2',
+    longitude: 121.45,
+    latitude: 31.23,
+  },
+}
+
 function wrap(): JSX.Element {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -215,5 +234,41 @@ describe('PreferencesPanel', () => {
     await waitFor(() => {
       expect(useChatStore.getState().uiPrefs.taste).toEqual([])
     })
+  })
+
+  // ===== F051 §4.5 — 二次打开页面: hydrate default_location → chatStore.address =====
+
+  it('GET 返回 default_location=null → mount 后 chatStore.address 仍为 null', async () => {
+    // REMOTE.default_location === null 是 beforeEach 默认场景
+    const { container } = render(wrap())
+    await waitFor(() => expect(byId(container, 'prefs-panel')).toBeInTheDocument())
+    // 等 hydrate effect 完成 (有 remotePrefs 才走 setAddress 那一行)
+    await waitFor(() => {
+      expect(useChatStore.getState().address).toBeNull()
+    })
+  })
+
+  it('GET 返回 default_location=结构化对象 → mount 后 chatStore.address 等于该对象 (二次打开恢复)', async () => {
+    // 覆盖 beforeEach 的 fetch mock: 这次返回带地址的 REMOTE_WITH_ADDRESS
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ ok: true, data: REMOTE_WITH_ADDRESS }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    // 模拟第二次打开: 起始 address=null, hydrate 后应当恢复为完整对象
+    useChatStore.setState({ address: null })
+
+    const { container } = render(wrap())
+    await waitFor(() => expect(byId(container, 'prefs-panel')).toBeInTheDocument())
+    await waitFor(() => {
+      expect(useChatStore.getState().address).toEqual(
+        REMOTE_WITH_ADDRESS.default_location,
+      )
+    })
+
+    // 同时验证 ContextStrip 用的 formatAddressSummary 也能产生非兜底文本
+    // (隐式保证: 第二次打开后顶部地址条不再显示 "上海 · 静安嘉里中心 B2" 兜底)
+    expect(useChatStore.getState().address?.community).toBe('静安嘉里中心')
   })
 })
