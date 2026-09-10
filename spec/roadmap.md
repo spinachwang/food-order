@@ -4,7 +4,8 @@
 |---|---|---|
 | **M0** | 骨架 — FastAPI `/healthz` + Vite 默认页 + spec 目录 + CLAUDE.md 落定 | ✅ 已完成 |
 | **M1 Agent MVP** | LangGraph 多 Agent + 14 菜系专家 + 高德 MCP + Web 聊天壳 + 用户偏好 | 🚧 进行中（功能模块落地，质量门未过） |
-| M2 | 体验增强（登录态、历史记录、收藏夹） | 未开始 |
+| **F060 首次部署** | 极光云单机一体 · Nginx 反代 · systemd uvicorn · 本机 MySQL · 手动脚本 · 备份 | ✅ 已完成（决策见 [ADR 0004](adr/0004-deployment-on-jaguar-cloud.md) / [docs/deployment.md](../docs/deployment.md) / [F060 spec](features/F060-deployment.md)） |
+| M2 | 体验增强（登录态、历史记录、收藏夹）+ **M1 质量门收口**（mypy 65 / ruff 238 / Playwright 6 全绿） | 未开始 |
 | M3 | 商业化（推荐准确率看板、多城市、第三方外卖深链接） | 未开始 |
 
 > 状态约定：`[ ]` 未开始 / `[~]` 进行中 / `[x]` 完成 / `[!]` 阻塞
@@ -51,6 +52,16 @@
 ### Web 聊天壳
 
 - [x] **F050** 前端聊天窗口可发起对话并流式渲染最终推荐
+
+### 部署上线（首次生产部署，F060）
+
+- [x] **架构决策落地**（[ADR 0004](adr/0004-deployment-on-jaguar-cloud.md)） —— 极光云 Ubuntu 单机一体；Nginx :80/:443 → uvicorn :8000 → MySQL 8（127.0.0.1）
+- [x] **`docs/deployment.md`** 端到端手册（含凭据清单 / 安全 checklist / 排错速查）
+- [x] **nginx 站点配置** `deploy/nginx/food-order.conf` —— 反代 `/api/*` + SPA 静态托管 + certbot ACME 路径 + 安全头
+- [x] **systemd unit** `deploy/systemd/food-order-backend.service` —— 非 root 跑 / 仅 127.0.0.1 / EnvironmentFile / on-failure 重启
+- [x] **运维脚本** `scripts/setup-server.sh` / `deploy.sh` / `rollback.sh` / `backup-db.sh` —— 幂等 + `set -euo pipefail` + 非零退出
+- [x] **`.env.production` 模板** `deploy/env/food-order.env.production` —— 生产安全默认值
+- [x] **README / CLAUDE.md 引用** `docs/deployment.md`
 
 ### 质量
 
@@ -121,5 +132,7 @@
 - 高德 MCP 服务配置（key 放在 `.env` 的 `AMAP_API_KEY`）
 - LangGraph 版本锁定（默认 0.2+ 稳定版）
 - 是否引入 Redis 做短期对话缓存（M2 再说）
-- **本机起 MySQL 跑 integration tests**（解锁 F001 / F030 / F031 / F040 全量验收）
-- **写 `frontend/eslint.config.js`**（质量门硬性前置）
+- **本机起 MySQL 跑 integration tests**（解锁 F001 / F030 / F031 / F040 全量验收）—— ✅ 2026-09-09 已就绪
+- **写 `frontend/eslint.config.js`**（质量门硬性前置）—— ✅ 改为 `package.json#eslintConfig`
+- **首次生产部署 F060** —— ✅ 2026-09-09 已完成（极光云单机一体）
+- **M1 质量门收口**（mypy 65 / ruff 238 / Playwright 6 全绿 + pytest 1 个 pre-existing）—— ⏳ M2 收口

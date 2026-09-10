@@ -53,6 +53,10 @@
 - [ ] **F050**：[Web 聊天窗口（Vite + React）](features/F050-chat-shell.md)
 - [ ] **F051**：[结构化地址选择器](features/F051-structured-address.md) — 替代 `window.prompt`，用 5 级选址组件（省/市/区/商圈/小区/门牌号）产出结构化 `default_location`；依赖高德 `/config/district` + `regeo` + F030 `place/text`（M1 落地，取代 F050 §8 #5 原"M2 接高德选址组件"计划）
 
+### 部署上线（首次生产部署）
+
+- [ ] **F060**：[部署上线（极光云单机一体）](features/F060-deployment.md) — 决策见 [ADR 0004](adr/0004-deployment-on-jaguar-cloud.md)；含 Nginx 反代 + systemd uvicorn + 本机 MySQL 8 + Let's Encrypt + 手动部署脚本 + mysqldump 备份
+
 ---
 
 ## M2 — 体验增强（暂缓）
