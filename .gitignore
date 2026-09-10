@@ -13,6 +13,9 @@ __pycache__/
 .venv/
 venv/
 env/
+# 例外：F060 部署用的 env 模板目录不入 Python 虚拟环境忽略规则
+!/deploy/env/
+
 .conda/
 
 # 测试 / 覆盖率

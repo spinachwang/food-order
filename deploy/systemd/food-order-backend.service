@@ -1,0 +1,62 @@
+# food-order · systemd unit for FastAPI backend
+# 放到 /etc/systemd/system/food-order-backend.service
+#
+# 设计要点:
+#   - 非 root 运行 (User=food-order)
+#   - 只监听 127.0.0.1 (反代由 nginx 完成)
+#   - 凭据从 EnvironmentFile= 读 (不要 Environment= 内嵌密钥)
+#   - 失败自动重启, 5s 间隔
+#   - 日志: stderr → journald, 文件落盘走 LOG_FILE_PATH
+#
+# 启用:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now food-order-backend.service
+
+[Unit]
+Description=food-order FastAPI backend (uvicorn)
+Documentation=https://github.com/<your-org>/food-order
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=food-order
+Group=food-order
+WorkingDirectory=/opt/food-order/backend
+
+# 生产环境变量（含密钥）从 /opt/food-order/.env 读
+EnvironmentFile=/opt/food-order/.env
+
+# conda env food-order + uvicorn 2 worker
+# conda run 会 source conda.sh, 确保 PATH 包含 conda
+ExecStart=/opt/conda/envs/food-order/bin/uvicorn app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 2 \
+    --proxy-headers \
+    --forwarded-allow-ips="127.0.0.1"
+
+# 启动失败 / 崩溃 → 重启
+Restart=on-failure
+RestartSec=5
+
+# 给 uvicorn 充分启动时间（首次 alembic / 加载 LLM provider）
+TimeoutStartSec=60
+
+# 资源限制（防单 worker 吃掉所有内存）
+LimitNOFILE=65535
+MemoryMax=2G
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/log/food-order /opt/food-order /tmp
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=food-order-backend
+
+[Install]
+WantedBy=multi-user.target
