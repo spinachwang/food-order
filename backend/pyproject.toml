@@ -11,6 +11,13 @@ ignore = ["E501"]
 # Prompt templates intentionally use full-width Chinese punctuation.
 "app/agents/cuisines/prompts/*.py" = ["RUF001"]
 "app/agents/cuisines/stubs/*.py" = ["RUF001"]
+# F010 川菜菜系专属 prompt 片段 (per ADR-0003 first-class 资产), 含大量
+# 中文全角标点 (与 F010 spec §4 文案严格对齐).
+"app/agents/cuisines/prompts/sichuan.py" = ["RUF001", "RUF002", "RUF003"]
+# F010 川菜专家的 prompt_fragment / docstring 严格沿用 spec 文案，含大量
+# 中文全角标点（如「（花生过敏）」），与 spec 口径一致。
+"app/agents/cuisines/sichuan.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/unit/test_sichuan_expert.py" = ["RUF001", "RUF002", "RUF003", "N806"]
 "tests/**/*.py" = ["RUF001", "N806"]
 # Functional TypedDict syntax is clearer for NotRequired fields.
 # F002 扩展的 RoutingLogEntry / RouterOutput 含中文注释，统一加 RUF00x 忽略。
