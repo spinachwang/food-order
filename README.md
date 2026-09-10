@@ -155,6 +155,59 @@ conda run -n food-order alembic upgrade head   # 应用最新迁移
 
 ---
 
+## ☁️ 部署（极光云 · 单机一体）
+
+> **首次生产部署** 见 [`docs/deployment.md`](docs/deployment.md)；架构决策见 [ADR 0004](spec/adr/0004-deployment-on-jaguar-cloud.md)；验收清单见 [F060](spec/features/F060-deployment.md)。
+
+### 一图流
+
+```text
+┌─────────────────────────────────────────────────────┐
+│       极光云 Ubuntu 22.04 LTS（单台 2C4G 起步）        │
+│                                                     │
+│   Nginx :80/:443 (Let's Encrypt)                    │
+│     ├─ /api/* → 127.0.0.1:8000 (uvicorn · systemd)  │
+│     └─ /*      → /var/www/food-order/dist/ (SPA)    │
+│                                                     │
+│   uvicorn  ← systemd: food-order-backend.service    │
+│   MySQL 8 (127.0.0.1:3306, 仅本机)                   │
+│   备份 /var/backups/food-order/db/  (·7 天保留)      │
+└─────────────────────────────────────────────────────┘
+```
+
+### 一次性
+
+```bash
+# 在服务器上：git clone <repo> 到 /opt/food-order
+sudo bash /opt/food-order/scripts/setup-server.sh   # 装 nginx/mysql/conda/env
+sudo cp /opt/food-order/.env.example /opt/food-order/.env
+sudo -u food-order vi /opt/food-order/.env          # 填 JWT_SECRET/DB_PWD/API_KEY
+sudo bash /opt/food-order/scripts/setup-server.sh   # （见 docs/ §2 后续手动步骤）
+```
+
+### 每次发布
+
+```bash
+# 本地
+cd frontend && pnpm build && cd ..
+tar czf release.tar.gz backend frontend/dist scripts deploy
+scp release.tar.gz user@server:/tmp/
+
+# 服务器
+sudo bash /opt/food-order/scripts/deploy.sh /tmp/release.tar.gz
+```
+
+### 回滚
+
+```bash
+sudo bash /opt/food-order/scripts/rollback.sh              # 列出可回滚版本
+sudo bash /opt/food-order/scripts/rollback.sh 20260909_210000   # 回滚到指定时间戳
+```
+
+完整步骤 / 凭据清单 / 安全 checklist / 排错速查见 [`docs/deployment.md`](docs/deployment.md)。
+
+---
+
 ## 🧪 跑测试 / 静态检查
 
 ```bash
@@ -215,7 +268,8 @@ pnpm test:e2e             # Playwright E2E（先 pnpm exec playwright install）
 |---|---|---|
 | **M0** 骨架 | FastAPI `/healthz` + Vite 默认页 + spec 目录 | ✅ 已完成 |
 | **M1 Agent MVP** | LangGraph 多 Agent + 14 菜系专家 + 高德 MCP + Web 聊天壳 + 用户偏好 | ✅ 主体完成（剩 1 个 pytest pre-existing + Playwright mock 化） |
-| M2 体验增强 | 登录态、历史记录、收藏夹、反馈回写 | ⏳ 待 M1 验收 |
+| **F060 首次部署** | 极光云单机一体 · Nginx 反代 · systemd uvicorn · 本机 MySQL · 手动脚本 · 备份 | ✅ 完成（决策见 [ADR 0004](spec/adr/0004-deployment-on-jaguar-cloud.md)） |
+| M2 体验增强 | 登录态、历史记录、收藏夹、反馈回写 + **M1 质量门收口**（mypy/ruff/Playwright） | ⏳ 待 F060 上线稳定后 |
 | M3 商业化 | 推荐准确率看板、多城市、第三方外卖深链接 | ⏳ 待 M2 |
 
 M1 详细验收清单见 [`spec/roadmap.md`](spec/roadmap.md)。
@@ -259,7 +313,16 @@ food-order/
 │
 ├── prototype/                 # 视觉基线（HTML 静态参考，不进构建）
 ├── docs/                      # 工程文档
-└── scripts/                   # 端到端冒烟脚本
+│   └── deployment.md          #   部署手册（F060 / 极光云单机一体）
+├── deploy/                    # 部署配置（不进运行时；由 setup-server.sh / deploy.sh 引用）
+│   ├── nginx/food-order.conf
+│   ├── systemd/food-order-backend.service
+│   └── env/food-order.env.production
+└── scripts/                   # 端到端冒烟脚本 + 运维脚本
+    ├── setup-server.sh        #   服务器一次性初始化（幂等）
+    ├── deploy.sh              #   部署新版（含备份 / 迁移 / 重启 / 探活）
+    ├── rollback.sh            #   回滚到指定时间戳版本
+    └── backup-db.sh           #   mysqldump 备份（cron 每日 03:00）
 ```
 
 完整目录约定与"为什么这么组织"见 [CLAUDE.md](CLAUDE.md)。
@@ -290,6 +353,8 @@ PR 流程：
 - [spec/roadmap.md](spec/roadmap.md) — 里程碑
 - [spec/adr/0002-ai-agent-pivot.md](spec/adr/0002-ai-agent-pivot.md) — 转向 AI Agent 的决策记录
 - [spec/adr/0003-prompts-as-first-class-assets.md](spec/adr/0003-prompts-as-first-class-assets.md) — 提示词 first-class 资产化
+- [spec/adr/0004-deployment-on-jaguar-cloud.md](spec/adr/0004-deployment-on-jaguar-cloud.md) — 极光云单机一体部署架构
+- [docs/deployment.md](docs/deployment.md) — 端到端部署手册
 
 ---
 

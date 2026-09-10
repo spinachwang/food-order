@@ -97,7 +97,7 @@ food-order/
 │
 ├── docs/                      # 工程文档（非规格）
 │   ├── local-dev.md           # 本地开发环境搭建
-│   └── deployment.md          # 部署流程（M2+ 再写）
+│   └── deployment.md          # 部署流程（F060 · 极光云单机一体）
 │
 └── scripts/                   # 一次性脚本（数据迁移、种子数据……）
 ```
