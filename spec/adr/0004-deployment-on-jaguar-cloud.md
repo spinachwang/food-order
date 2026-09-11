@@ -59,7 +59,7 @@ M1 Agent MVP 的功能模块已落地（14 菜系专家 / 高德 MCP / 总结 / 
 ### 3. 部署目录约定（服务器上）
 
 ```
-/opt/food-order/                    ← 代码（git clone）
+/root/food-order/                    ← 代码（git clone）
   ├── backend/
   ├── frontend/
   ├── spec/
@@ -81,10 +81,10 @@ M1 Agent MVP 的功能模块已落地（14 菜系专家 / 高德 MCP / 总结 / 
 ### 4. systemd unit（uvicorn 守护）
 
 - **user**：`food-order`（新建系统用户，非 root）
-- **WorkingDirectory**：`/opt/food-order/backend`
+- **WorkingDirectory**：`/root/food-order/backend`
 - **ExecStart**：`conda run -n food-order uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2`
 - **Restart**：`on-failure`，`RestartSec=5`
-- **EnvironmentFile**：`/opt/food-order/.env`（不要 `Environment=` 内嵌密钥）
+- **EnvironmentFile**：`/root/food-order/.env`（不要 `Environment=` 内嵌密钥）
 - 日志走 `journalctl -u food-order-backend` + 文件落盘（`LOG_FILE_PATH=/var/log/food-order/app.log`）
 
 ### 5. nginx 反代要点
@@ -112,9 +112,9 @@ M1 Agent MVP 的功能模块已落地（14 菜系专家 / 高德 MCP / 总结 / 
   3. scp release.tar.gz user@server:/tmp/
 
 服务器:
-  4. /opt/food-order/scripts/deploy.sh /tmp/release.tar.gz
-       ├─ 备份旧版 (/opt/food-order.backup.YYYYMMDD_HHMMSS/)
-       ├─ 解压到 /opt/food-order/
+  4. /root/food-order/scripts/deploy.sh /tmp/release.tar.gz
+       ├─ 备份旧版 (/root/food-order.backup.YYYYMMDD_HHMMSS/)
+       ├─ 解压到 /root/food-order/
        ├─ conda run -n food-order alembic upgrade head
        ├─ 重载 systemd: systemctl restart food-order-backend
        ├─ 重载 nginx: nginx -s reload
@@ -123,7 +123,7 @@ M1 Agent MVP 的功能模块已落地（14 菜系专家 / 高德 MCP / 总结 / 
 
 ### 8. 回滚
 
-`scripts/rollback.sh [YYYYMMDD_HHMMSS]` —— 把 `/opt/food-order.backup.<ts>/` 覆盖回 `/opt/food-order/`，重跑迁移降级（`alembic downgrade -1`），重启。
+`scripts/rollback.sh [YYYYMMDD_HHMMSS]` —— 把 `/root/food-order.backup.<ts>/` 覆盖回 `/root/food-order/`，重跑迁移降级（`alembic downgrade -1`），重启。
 
 ### 9. 不在本次范围（明确推迟）
 

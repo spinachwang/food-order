@@ -4,10 +4,13 @@
 # 在 Ubuntu 22.04 LTS 上跑：
 #   sudo bash scripts/setup-server.sh
 #
+# 可覆盖默认 HOME（不传则用 /root/food-order）：
+#   sudo FOOD_ORDER_HOME=/path/to/home bash scripts/setup-server.sh
+#
 # 做这些事：
 #   1. apt update + 装 nginx / mysql-server-8.0 / certbot / python3-pip / ufw / unattended-upgrades
 #   2. 创建 food-order 系统用户（非 root 跑后端）
-#   3. 创建部署目录 /opt/food-order · /var/www/food-order · /var/log/food-order · /var/backups/food-order
+#   3. 创建部署目录 ${FOOD_ORDER_HOME} · /var/www/food-order · /var/log/food-order · /var/backups/food-order
 #   4. 装 Miniconda + 建 conda env food-order + 装 backend 依赖
 #   5. MySQL 8 绑定 127.0.0.1（不暴露公网）
 #   6. ufw 防火墙：22（限 IP）/ 80 / 443
@@ -22,7 +25,7 @@
 set -euo pipefail
 
 readonly FOOD_ORDER_USER="food-order"
-readonly FOOD_ORDER_HOME="/opt/food-order"
+readonly FOOD_ORDER_HOME="${FOOD_ORDER_HOME:-/root/food-order}"
 readonly DIST_DIR="/var/www/food-order"
 readonly LOG_DIR="/var/log/food-order"
 readonly BACKUP_DIR="/var/backups/food-order/db"
@@ -107,7 +110,7 @@ else
     log "  conda env ${CONDA_ENV_NAME} 已存在"
 fi
 
-# 装 backend 依赖（如果 /opt/food-order/backend/requirements.txt 存在）
+# 装 backend 依赖（如果 ${FOOD_ORDER_HOME}/backend/requirements.txt 存在）
 if [[ -f "${FOOD_ORDER_HOME}/backend/requirements.txt" ]]; then
     log "  装 backend 依赖（pip install -r backend/requirements.txt）"
     conda run -n "${CONDA_ENV_NAME}" pip install -r "${FOOD_ORDER_HOME}/backend/requirements.txt"
@@ -149,7 +152,7 @@ cat > /etc/cron.d/food-order-backup <<'EOF'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-0 3 * * *  root  bash /opt/food-order/scripts/backup-db.sh >> /var/log/food-order/backup.log 2>&1
+0 3 * * *  root  bash ${FOOD_ORDER_HOME}/scripts/backup-db.sh >> /var/log/food-order/backup.log 2>&1
 EOF
 chmod 644 /etc/cron.d/food-order-backup
 
@@ -160,10 +163,10 @@ cat <<'EOF'
 ================================================================
  后续手动步骤（脚本没做）：
 ================================================================
-  1. 配置 /opt/food-order/.env：
-       sudo cp /opt/food-order/.env.example /opt/food-order/.env
-       sudo -u food-order vi /opt/food-order/.env    # 填 JWT_SECRET/DB_PASSWORD/API_KEY
-       sudo chmod 600 /opt/food-order/.env
+  1. 配置 ${FOOD_ORDER_HOME}/.env：
+       sudo cp ${FOOD_ORDER_HOME}/.env.example ${FOOD_ORDER_HOME}/.env
+       sudo -u food-order vi ${FOOD_ORDER_HOME}/.env    # 填 JWT_SECRET/DB_PASSWORD/API_KEY
+       sudo chmod 600 ${FOOD_ORDER_HOME}/.env
 
   2. 初始化 MySQL 用户 + 数据库：
        sudo mysql -e "CREATE USER 'food_order'@'127.0.0.1' IDENTIFIED BY '<password>';"
@@ -173,16 +176,16 @@ cat <<'EOF'
 
   3. 跑 alembic 迁移：
        sudo -u food-order conda run -n food-order \
-           bash -c "cd /opt/food-order/backend && alembic upgrade head"
+           bash -c "cd ${FOOD_ORDER_HOME}/backend && alembic upgrade head"
 
   4. 复制 nginx / systemd 配置 + 启动：
-       sudo cp /opt/food-order/deploy/nginx/food-order.conf /etc/nginx/sites-available/
+       sudo cp ${FOOD_ORDER_HOME}/deploy/nginx/food-order.conf /etc/nginx/sites-available/
        sudo ln -sf /etc/nginx/sites-available/food-order.conf /etc/nginx/sites-enabled/
        sudo rm -f /etc/nginx/sites-enabled/default
        sudo sed -i 's/example.com/<你的域名>/g' /etc/nginx/sites-available/food-order.conf
        sudo nginx -t
 
-       sudo cp /opt/food-order/deploy/systemd/food-order-backend.service /etc/systemd/system/
+       sudo cp ${FOOD_ORDER_HOME}/deploy/systemd/food-order-backend.service /etc/systemd/system/
        sudo systemctl daemon-reload
        sudo systemctl enable --now food-order-backend.service
 

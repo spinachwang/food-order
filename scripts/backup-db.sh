@@ -4,7 +4,10 @@
 # 用法：
 #   sudo bash scripts/backup-db.sh
 #
-# 读 /opt/food-order/.env 里的 DB_* 变量
+# 可覆盖默认 HOME（不传则用 /root/food-order）：
+#   sudo FOOD_ORDER_HOME=/path/to/home bash scripts/backup-db.sh
+#
+# 读 ${FOOD_ORDER_HOME}/.env 里的 DB_* 变量
 # 产出：/var/backups/food-order/db/food_order_<ts>.sql.gz
 # 保留 7 天（老的删掉）
 #
@@ -12,8 +15,9 @@
 
 set -euo pipefail
 
+readonly FOOD_ORDER_HOME="${FOOD_ORDER_HOME:-/root/food-order}"
 readonly BACKUP_DIR="/var/backups/food-order/db"
-readonly ENV_FILE="/opt/food-order/.env"
+readonly ENV_FILE="${FOOD_ORDER_HOME}/.env"
 
 if [[ $EUID -ne 0 ]]; then
     echo "[ERROR] 必须用 root 跑：sudo bash $0" >&2

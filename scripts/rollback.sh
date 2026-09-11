@@ -8,16 +8,16 @@
 # 例：sudo bash scripts/rollback.sh 20260909_210000
 #
 # 流程：
-#   1. 校验 timestamp 存在 /opt/food-order.backup.<ts>/
+#   1. 校验 timestamp 存在 ${FOOD_ORDER_HOME}.backup.<ts>/
 #   2. 备份当前版本（防止回滚失败后无法再次回滚）
-#   3. 覆盖 /opt/food-order/ ← /opt/food-order.backup.<ts>/
+#   3. 覆盖 ${FOOD_ORDER_HOME}/ ← ${FOOD_ORDER_HOME}.backup.<ts>/
 #   4. alembic downgrade -1（如果新版本已经升级过迁移）
 #   5. 重启 systemd + reload nginx
 #   6. 健康检查
 
 set -euo pipefail
 
-readonly FOOD_ORDER_HOME="/opt/food-order"
+readonly FOOD_ORDER_HOME="${FOOD_ORDER_HOME:-/root/food-order}"
 readonly SERVICE_NAME="food-order-backend.service"
 readonly HEALTHCHECK_URL="http://127.0.0.1:8000/healthz"
 
