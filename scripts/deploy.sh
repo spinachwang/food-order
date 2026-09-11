@@ -4,10 +4,13 @@
 # 用法：
 #   sudo bash scripts/deploy.sh /tmp/release.tar.gz
 #
+# 可覆盖默认 HOME（不传则用 /root/food-order）：
+#   sudo FOOD_ORDER_HOME=/path/to/home bash scripts/deploy.sh /tmp/release.tar.gz
+#
 # 流程：
-#   1. 校验 tarball + 校验 /opt/food-order/.env 存在
-#   2. 备份当前 /opt/food-order 到 /opt/food-order.backup.<ts>/
-#   3. 解压新版本到 /opt/food-order/（保留 .env / scripts）
+#   1. 校验 tarball + 校验 ${FOOD_ORDER_HOME}/.env 存在
+#   2. 备份当前 ${FOOD_ORDER_HOME} 到 ${FOOD_ORDER_HOME}.backup.<ts>/
+#   3. 解压新版本到 ${FOOD_ORDER_HOME}/（保留 .env / scripts）
 #   4. 装 backend 依赖（conda run pip install）
 #   5. alembic upgrade head
 #   6. 复制 frontend/dist → /var/www/food-order/dist
@@ -19,7 +22,7 @@
 
 set -euo pipefail
 
-readonly FOOD_ORDER_HOME="/opt/food-order"
+readonly FOOD_ORDER_HOME="${FOOD_ORDER_HOME:-/root/food-order}"
 readonly DIST_DIR="/var/www/food-order/dist"
 readonly LOG_DIR="/var/log/food-order"
 readonly SERVICE_NAME="food-order-backend.service"

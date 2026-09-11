@@ -178,11 +178,11 @@ conda run -n food-order alembic upgrade head   # 应用最新迁移
 ### 一次性
 
 ```bash
-# 在服务器上：git clone <repo> 到 /opt/food-order
-sudo bash /opt/food-order/scripts/setup-server.sh   # 装 nginx/mysql/conda/env
-sudo cp /opt/food-order/.env.example /opt/food-order/.env
-sudo -u food-order vi /opt/food-order/.env          # 填 JWT_SECRET/DB_PWD/API_KEY
-sudo bash /opt/food-order/scripts/setup-server.sh   # （见 docs/ §2 后续手动步骤）
+# 在服务器上：git clone <repo> 到 /root/food-order
+sudo bash /root/food-order/scripts/setup-server.sh   # 装 nginx/mysql/conda/env
+sudo cp /root/food-order/.env.example /root/food-order/.env
+sudo -u food-order vi /root/food-order/.env          # 填 JWT_SECRET/DB_PWD/API_KEY
+sudo bash /root/food-order/scripts/setup-server.sh   # （见 docs/ §2 后续手动步骤）
 ```
 
 ### 每次发布
@@ -194,14 +194,14 @@ tar czf release.tar.gz backend frontend/dist scripts deploy
 scp release.tar.gz user@server:/tmp/
 
 # 服务器
-sudo bash /opt/food-order/scripts/deploy.sh /tmp/release.tar.gz
+sudo bash /root/food-order/scripts/deploy.sh /tmp/release.tar.gz
 ```
 
 ### 回滚
 
 ```bash
-sudo bash /opt/food-order/scripts/rollback.sh              # 列出可回滚版本
-sudo bash /opt/food-order/scripts/rollback.sh 20260909_210000   # 回滚到指定时间戳
+sudo bash /root/food-order/scripts/rollback.sh              # 列出可回滚版本
+sudo bash /root/food-order/scripts/rollback.sh 20260909_210000   # 回滚到指定时间戳
 ```
 
 完整步骤 / 凭据清单 / 安全 checklist / 排错速查见 [`docs/deployment.md`](docs/deployment.md)。

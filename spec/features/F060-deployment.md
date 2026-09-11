@@ -42,7 +42,7 @@
 ### A. 服务器初始化（一次性）
 
 - [ ] `food-order` 系统用户创建（非 root 部署）
-- [ ] `/opt/food-order/` 代码目录（git clone）
+- [ ] `/root/food-order/` 代码目录（git clone）
 - [ ] `/var/www/food-order/dist/` 前端产物
 - [ ] `/var/log/food-order/` 日志目录
 - [ ] `/var/backups/food-order/db/` 备份目录
@@ -102,7 +102,7 @@
 - [ ] 本地：`pnpm build` 产出 `frontend/dist/`
 - [ ] 本地：`tar czf release.tar.gz backend frontend/dist scripts deploy .env`
 - [ ] 本地：`scp release.tar.gz user@server:/tmp/`
-- [ ] 服务器：`bash /opt/food-order/scripts/deploy.sh /tmp/release.tar.gz` 全程无人工干预
+- [ ] 服务器：`bash /root/food-order/scripts/deploy.sh /tmp/release.tar.gz` 全程无人工干预
 - [ ] 部署脚本失败时**非零退出码** + stderr 可读错误（不静默吞）
 
 ### H. 文档
@@ -135,8 +135,8 @@
 | 症状 | 排查 |
 |---|---|
 | `/healthz` 502 | `systemctl status food-order-backend` + `journalctl -xeu food-order-backend` |
-| 502 后端启动失败 | 99% 是 env 缺失；检查 `/opt/food-order/.env` 是否齐 + `journalctl` 看 stack |
-| Alembic 升级失败 | `alembic -c /opt/food-order/backend/alembic.ini current` + 看 head |
+| 502 后端启动失败 | 99% 是 env 缺失；检查 `/root/food-order/.env` 是否齐 + `journalctl` 看 stack |
+| Alembic 升级失败 | `alembic -c /root/food-order/backend/alembic.ini current` + 看 head |
 | 前端 404 | 检查 `/var/www/food-order/dist/` 是否被部署脚本复制 + nginx `root` 路径 |
 | HTTPS 证书失效 | `certbot renew --dry-run` + 看 certbot.timer 是否 active |
 | 数据库连接失败 | `mysql -u... -p... -h 127.0.0.1`；`bind-address = 127.0.0.1` 不能误改 |

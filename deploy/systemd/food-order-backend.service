@@ -2,7 +2,7 @@
 # 放到 /etc/systemd/system/food-order-backend.service
 #
 # 设计要点:
-#   - 非 root 运行 (User=food-order)
+#   - 以 root 运行（不设 User=/Group= 即默认 root）
 #   - 只监听 127.0.0.1 (反代由 nginx 完成)
 #   - 凭据从 EnvironmentFile= 读 (不要 Environment= 内嵌密钥)
 #   - 失败自动重启, 5s 间隔
@@ -20,12 +20,10 @@ Wants=network-online.target
 
 [Service]
 Type=exec
-User=food-order
-Group=food-order
-WorkingDirectory=/opt/food-order/backend
+WorkingDirectory=/root/food-order/backend
 
-# 生产环境变量（含密钥）从 /opt/food-order/.env 读
-EnvironmentFile=/opt/food-order/.env
+# 生产环境变量（含密钥）从 /root/food-order/.env 读
+EnvironmentFile=/root/food-order/.env
 
 # conda env food-order + uvicorn 2 worker
 # conda run 会 source conda.sh, 确保 PATH 包含 conda
@@ -51,8 +49,7 @@ MemoryMax=2G
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
-ReadWritePaths=/var/log/food-order /opt/food-order /tmp
+ReadWritePaths=/var/log/food-order /root/food-order /tmp
 
 StandardOutput=journal
 StandardError=journal

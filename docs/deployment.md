@@ -57,22 +57,22 @@
 # 在本地：先 clone 仓库到服务器（推荐做法）
 ssh ubuntu@<server-ip>
 sudo -i
-git clone <your-git-repo> /opt/food-order
-cd /opt/food-order
+git clone <your-git-repo> /root/food-order
+cd /root/food-order
 
 # 跑一次性安装脚本（幂等，可重跑）
 bash scripts/setup-server.sh
 ```
 
-> 这个脚本会做：装 nginx / mysql-server / certbot / unattended-upgrades + 建 `food-order` 系统用户 + 建 `/opt/food-order` `/var/www/food-order` `/var/log/food-order` `/var/backups/food-order` + 装 conda + 建 `food-order` conda env + 装 backend 依赖。
+> 这个脚本会做：装 nginx / mysql-server / certbot / unattended-upgrades + 建 `food-order` 系统用户 + 建 `/root/food-order` `/var/www/food-order` `/var/log/food-order` `/var/backups/food-order` + 装 conda + 建 `food-order` conda env + 装 backend 依赖。
 
 ### 2.2 配置生产 `.env`
 
 ```bash
-sudo cp /opt/food-order/.env.example /opt/food-order/.env
-sudo -u food-order vi /opt/food-order/.env
-sudo chmod 600 /opt/food-order/.env
-sudo chown food-order:food-order /opt/food-order/.env
+sudo cp /root/food-order/.env.example /root/food-order/.env
+sudo -u food-order vi /root/food-order/.env
+sudo chmod 600 /root/food-order/.env
+sudo chown food-order:food-order /root/food-order/.env
 ```
 
 **生产必须改的字段：**
@@ -96,7 +96,7 @@ sudo chown food-order:food-order /opt/food-order/.env
 
 ```bash
 sudo -i -u food-order
-cd /opt/food-order/backend
+cd /root/food-order/backend
 conda run -n food-order python -c "
 from app.core.config import get_settings
 from sqlalchemy import create_engine, text
@@ -179,13 +179,13 @@ scp release.tar.gz ubuntu@<server-ip>:/tmp/
 
 ```bash
 ssh ubuntu@<server-ip>
-sudo bash /opt/food-order/scripts/deploy.sh /tmp/release.tar.gz
+sudo bash /root/food-order/scripts/deploy.sh /tmp/release.tar.gz
 ```
 
 `deploy.sh` 会做：
 
-1. 备份当前版本到 `/opt/food-order.backup.<ts>/`
-2. 解压新版本到 `/opt/food-order/`
+1. 备份当前版本到 `/root/food-order.backup.<ts>/`
+2. 解压新版本到 `/root/food-order/`
 3. `conda run -n food-order pip install -r backend/requirements.txt`
 4. `conda run -n food-order alembic upgrade head`
 5. 复制 `frontend/dist/` → `/var/www/food-order/dist/`
@@ -194,19 +194,21 @@ sudo bash /opt/food-order/scripts/deploy.sh /tmp/release.tar.gz
 8. `curl http://127.0.0.1:8000/healthz` 探活
 9. 任何一步失败立即非零退出，**不静默吞**
 
+> **可覆盖 HOME**：脚本支持 `FOOD_ORDER_HOME=/path/to/home` 覆盖默认 `/root/food-order`。
+
 ## 5. 回滚
 
 ```bash
 ssh ubuntu@<server-ip>
-sudo bash /opt/food-order/scripts/rollback.sh
+sudo bash /root/food-order/scripts/rollback.sh
 # 列出可回滚的版本
-sudo bash /opt/food-order/scripts/rollback.sh 20260909_210000
+sudo bash /root/food-order/scripts/rollback.sh 20260909_210000
 # 回滚到指定时间戳版本
 ```
 
 `rollback.sh` 会做：
 
-1. 把 `/opt/food-order.backup.<ts>/` 覆盖回 `/opt/food-order/`
+1. 把 `/root/food-order.backup.<ts>/` 覆盖回 `/root/food-order/`
 2. 重跑 alembic（如需 downgrade：`alembic downgrade -1` 后再 upgrade）
 3. 重启 systemd + reload nginx
 4. 健康检查
@@ -216,7 +218,7 @@ sudo bash /opt/food-order/scripts/rollback.sh 20260909_210000
 ### 6.1 手动备份
 
 ```bash
-sudo bash /opt/food-order/scripts/backup-db.sh
+sudo bash /root/food-order/scripts/backup-db.sh
 # /var/backups/food-order/db/food_order_YYYYMMDD_HHMMSS.sql.gz
 ```
 
@@ -244,8 +246,8 @@ v2 接阿里云 OSS / 极光云对象存储时再加。当前只落本机 `/var/
 | 症状 | 排查 |
 |---|---|
 | `/healthz` 502 / curl 失败 | `systemctl status food-order-backend` + `journalctl -xeu food-order-backend` |
-| 后端启动报错 | 99% 是 env 缺失；检查 `/opt/food-order/.env` 是否齐 |
-| Alembic 升级失败 | `alembic -c /opt/food-order/backend/alembic.ini current` 看 head |
+| 后端启动报错 | 99% 是 env 缺失；检查 `/root/food-order/.env` 是否齐 |
+| Alembic 升级失败 | `alembic -c /root/food-order/backend/alembic.ini current` 看 head |
 | 前端 404 | 检查 `/var/www/food-order/dist/` 是否被部署脚本复制 + nginx `root` |
 | HTTPS 证书失效 | `certbot renew --dry-run` + `systemctl status certbot.timer` |
 | MySQL 连不上 | `mysql -u... -p... -h 127.0.0.1`；`bind-address = 127.0.0.1` 不能误改 |
